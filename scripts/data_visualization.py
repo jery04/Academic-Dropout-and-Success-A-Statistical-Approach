@@ -1,7 +1,7 @@
 """
 EDA script for the project dataset
 Usage:
-    python "d:/Cibernética/Statistics project/scripts/eda.py" --input "d:/Cibernética/Statistics project/dataset/dataset.csv" --out "d:/Cibernética/Statistics project/outputs/eda_outputs"
+    python "d:/Cibernética/Statistics project/scripts/data_visualization.py" --input "d:/Cibernética/Statistics project/dataset/dataset.csv" --out "d:/Cibernética/Statistics project/outputs/data_visualization"
 
 Generates:
 - Descriptive stats CSV
@@ -156,6 +156,6 @@ if __name__ == '__main__':
     """
     p = argparse.ArgumentParser()
     p.add_argument('--input', required=False, help='Path to CSV input', default=str(Path(__file__).parent.parent / 'dataset' / 'dataset.csv'))
-    p.add_argument('--out', required=False, help='Output directory', default=str(Path(__file__).parent.parent / 'outputs' / 'eda_outputs'))
+    p.add_argument('--out', required=False, help='Output directory', default=str(Path(__file__).parent.parent / 'outputs' / 'data_visualization'))
     args = p.parse_args()
     main(args.input, args.out)
