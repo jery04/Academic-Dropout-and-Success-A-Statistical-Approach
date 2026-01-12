@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # =============================================================================
 # CONFIGURACIÓN DE VARIABLES
 # =============================================================================
@@ -74,7 +73,6 @@ CONTINUOUS_NUMERIC_VARS = [
     'GDP'
 ]
 
-
 def safe_filename(name: str) -> str:
     """Sanitiza una cadena para que sea segura como nombre de archivo.
     
@@ -85,7 +83,6 @@ def safe_filename(name: str) -> str:
         Cadena válida para nombre de fichero.
     """
     return re.sub(r'[<>:"/\\|?*]', '_', str(name))
-
 
 # =============================================================================
 # ANÁLISIS Y MANEJO DE VALORES FALTANTES
@@ -117,7 +114,6 @@ def analyze_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     missing_report = missing_report.reset_index(drop=True)
     
     return missing_report
-
 
 def handle_missing_values(
     df: pd.DataFrame,
@@ -206,7 +202,6 @@ def handle_missing_values(
     
     return df_clean, transformations
 
-
 # =============================================================================
 # CODIFICACIÓN DE VARIABLES CATEGÓRICAS
 # =============================================================================
@@ -249,7 +244,6 @@ def encode_target_variable(
             print(f"    {k} → {v}")
     
     return df_encoded, target_mapping
-
 
 def identify_variable_types(df: pd.DataFrame) -> Dict[str, List[str]]:
     """Identifica y clasifica las variables por tipo.
@@ -297,7 +291,6 @@ def identify_variable_types(df: pd.DataFrame) -> Dict[str, List[str]]:
     
     return var_types
 
-
 def apply_label_encoding(
     df: pd.DataFrame,
     columns: List[str]
@@ -328,7 +321,6 @@ def apply_label_encoding(
             print(f"✓ Label Encoding aplicado a '{col}': {len(unique_vals)} categorías")
     
     return df_encoded, mappings
-
 
 def apply_one_hot_encoding(
     df: pd.DataFrame,
@@ -377,7 +369,6 @@ def apply_one_hot_encoding(
             print(f"✓ One-Hot Encoding aplicado a '{col}': {len(dummies.columns)} columnas creadas")
     
     return df_encoded, new_columns
-
 
 # =============================================================================
 # ESTANDARIZACIÓN Y NORMALIZACIÓN
@@ -449,7 +440,6 @@ def standardize_variables(
     
     return df_scaled, scaling_params
 
-
 def detect_and_handle_outliers(
     df: pd.DataFrame,
     columns: List[str],
@@ -510,7 +500,6 @@ def detect_and_handle_outliers(
             print(f"✓ {col}: {n_outliers} outliers detectados (método: {method}, acción: {action})")
     
     return df_processed, outlier_counts
-
 
 # =============================================================================
 # GENERACIÓN DE REPORTES
@@ -669,7 +658,6 @@ def prepare_data(
     print("=" * 70)
     
     return df_final
-
 
 def main():
     """Punto de entrada principal del script."""

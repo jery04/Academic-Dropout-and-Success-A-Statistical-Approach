@@ -19,7 +19,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 def safe_filename(name: str) -> str:
     """Sanitiza una cadena para que sea segura como nombre de archivo.
 
@@ -35,7 +34,6 @@ def safe_filename(name: str) -> str:
     """
     # Replace problematic characters with underscore
     return re.sub(r'[<>:"/\\|?*]', '_', str(name))
-
 
 def generate_histograms(df, numeric, out_dir):
     """Genera y guarda histogramas (con KDE) para columnas numéricas.
@@ -62,7 +60,6 @@ def generate_histograms(df, numeric, out_dir):
         plt.savefig(hist_dir / f'hist_{safe_filename(c)}.png', dpi=150)
         plt.close()
 
-
 def generate_boxplots(df, numeric, out_dir):
     """Genera y guarda diagramas de caja (boxplots) para columnas numéricas.
 
@@ -87,7 +84,6 @@ def generate_boxplots(df, numeric, out_dir):
         plt.tight_layout()
         plt.savefig(box_dir / f'box_{safe_filename(c)}.png', dpi=150)
         plt.close()
-
 
 def generate_scatterplots(df, numeric, out_dir):
     """Genera y guarda scatterplots para pares de columnas numéricas.
@@ -120,7 +116,6 @@ def generate_scatterplots(df, numeric, out_dir):
                 plt.savefig(scatter_dir / safe_name, dpi=150)
                 plt.close()
 
-
 def main(input_path, out_dir):
     """Punto de entrada para generar figuras EDA a partir de un CSV.
 
@@ -147,7 +142,6 @@ def main(input_path, out_dir):
     generate_scatterplots(df, numeric, out_dir)
 
     print('Gráficas generadas en:', out_dir)
-
 
 if __name__ == '__main__':
     """Ejecuta el script desde la línea de comandos.

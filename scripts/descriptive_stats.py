@@ -18,7 +18,6 @@ import re
 import pandas as pd
 import numpy as np
 
-
 def safe_filename(name: str) -> str:
         """Genera un nombre de fichero seguro reemplazando caracteres inválidos.
 
@@ -30,7 +29,6 @@ def safe_filename(name: str) -> str:
         - Una cadena con los caracteres inválidos sustituidos por guiones bajos.
         """
         return re.sub(r'[<>:"/\\|?*]', '_', str(name))
-
 
 def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
     """Calcula y guarda estadísticas descriptivas para cada columna del DataFrame.
@@ -158,7 +156,6 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
     summary_csv = out_dir / 'descriptive_stats_summary.csv'
     summary_df.to_csv(summary_csv, index=False, encoding='utf-8')
 
-
 def main(input_path: str, out: str):
     """Punto de entrada para ejecutar estadísticas descriptivas desde CSV.
 
@@ -181,7 +178,6 @@ def main(input_path: str, out: str):
 
     df = pd.read_csv(input_path, encoding='utf-8', low_memory=False)
     compute_descriptive_stats(df, target)
-
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()

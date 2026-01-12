@@ -211,7 +211,7 @@ def exploratory_analysis(grupo_abandono, grupo_no_abandono):
     plt.tight_layout()
     plt.savefig(f'{FIGURES_DIR}/boxplot_histograma.png', dpi=150, bbox_inches='tight')
     print(f"✓ Figura guardada: {FIGURES_DIR}/boxplot_histograma.png")
-    plt.show()
+    plt.close()
     
     return
 
