@@ -40,8 +40,12 @@ plt.rcParams['font.size'] = 12
 # CONFIGURATION
 # ============================================================================
 
-INPUT_PATH = "outputs/prepared_data/dataset_prepared.csv"
-OUTPUT_DIR = "outputs/prediction_results"
+# Get the project root directory (parent of scripts folder)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+INPUT_PATH = os.path.join(PROJECT_ROOT, "outputs", "prepared_data", "dataset_prepared.csv")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "prediction_results")
 RANDOM_STATE = 42
 TEST_SIZE = 0.20
 

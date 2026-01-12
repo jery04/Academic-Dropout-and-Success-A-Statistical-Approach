@@ -82,6 +82,9 @@ def safe_filename(name: str) -> str:
     Returns:
         Cadena válida para nombre de fichero.
     """
+    # Reemplaza caracteres que no son válidos en nombres de fichero
+    # por un guion bajo para evitar errores al crear archivos.
+    # Se convierte a `str` para manejar valores no string de forma robusta.
     return re.sub(r'[<>:"/\\|?*]', '_', str(name))
 
 # =============================================================================
@@ -100,7 +103,9 @@ def analyze_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame con el análisis de valores faltantes.
     """
+    # Conteo absoluto de valores nulos por columna
     missing_count = df.isnull().sum()
+    # Porcentaje relativo de nulos respecto al total de filas
     missing_pct = (df.isnull().sum() / len(df)) * 100
     
     missing_report = pd.DataFrame({
@@ -135,6 +140,7 @@ def handle_missing_values(
     Returns:
         Tuple con (DataFrame procesado, diccionario de transformaciones aplicadas).
     """
+    # Trabajamos sobre una copia para no mutar el DataFrame original
     df_clean = df.copy()
     transformations = {
         'missing_values': {
@@ -155,19 +161,20 @@ def handle_missing_values(
         print(f"⚠️  Columnas eliminadas por exceder {threshold_drop}% de faltantes: {cols_to_drop}")
     
     # Paso 2: Imputar valores faltantes restantes
+    # Se recorren columnas con nulos y se aplica la estrategia seleccionada.
     for col in df_clean.columns:
         if df_clean[col].isnull().sum() > 0:
             n_missing = df_clean[col].isnull().sum()
             
             if strategy == 'auto':
-                # Estrategia automática basada en el tipo de dato
+                # Estrategia automática: numéricos -> mediana, categóricos -> moda
                 if pd.api.types.is_numeric_dtype(df_clean[col]):
-                    # Mediana para numéricos (robusta a outliers)
+                    # Mediana para variables numéricas (resistente a outliers)
                     impute_value = df_clean[col].median()
                     df_clean[col] = df_clean[col].fillna(impute_value)
                     method = 'mediana'
                 else:
-                    # Moda para categóricos
+                    # Moda para variables categóricas; si no hay moda, usar 'Unknown'
                     impute_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown'
                     df_clean[col] = df_clean[col].fillna(impute_value)
                     method = 'moda'
@@ -188,6 +195,7 @@ def handle_missing_values(
                 method = 'moda'
                 
             elif strategy == 'drop':
+                # Eliminar filas que tienen nulos en esta columna
                 df_clean = df_clean.dropna(subset=[col])
                 impute_value = None
                 method = 'eliminación de filas'
@@ -228,6 +236,7 @@ def encode_target_variable(
     Returns:
         Tuple con (DataFrame modificado, mapeo de codificación).
     """
+    # No mutamos el DataFrame original
     df_encoded = df.copy()
     
     # Mapeo ordenado conceptualmente
@@ -238,6 +247,7 @@ def encode_target_variable(
     }
     
     if target_col in df_encoded.columns:
+        # Creamos una nueva columna con sufijo '_encoded' que contiene los códigos
         df_encoded[f'{target_col}_encoded'] = df_encoded[target_col].map(target_mapping)
         print(f"✓ Variable objetivo '{target_col}' codificada:")
         for k, v in target_mapping.items():
@@ -267,6 +277,7 @@ def identify_variable_types(df: pd.DataFrame) -> Dict[str, List[str]]:
         'target': []              # Variable objetivo
     }
     
+    # Clasificamos columna por columna según listados y tipo de datos
     for col in df.columns:
         if col == TARGET_VAR:
             var_types['target'].append(col)
@@ -280,7 +291,8 @@ def identify_variable_types(df: pd.DataFrame) -> Dict[str, List[str]]:
         elif col in CONTINUOUS_NUMERIC_VARS:
             var_types['numeric_continuous'].append(col)
         elif pd.api.types.is_numeric_dtype(df[col]):
-            # Numérica no clasificada previamente
+            # Si es numérica pero no estaba en CONTINUOUS_NUMERIC_VARS,
+            # inferimos si es categórica por el recuento de valores únicos.
             unique_vals = df[col].dropna().unique()
             if len(unique_vals) <= 10:
                 var_types['categorical_coded'].append(col)
@@ -314,8 +326,10 @@ def apply_label_encoding(
     
     for col in columns:
         if col in df_encoded.columns:
+            # Ordenamos los valores únicos para que el mapeo sea reproducible
             unique_vals = sorted(df_encoded[col].dropna().unique())
             mapping = {val: idx for idx, val in enumerate(unique_vals)}
+            # Añadimos columna con sufijo '_le' (label encoded)
             df_encoded[f'{col}_le'] = df_encoded[col].map(mapping)
             mappings[col] = mapping
             print(f"✓ Label Encoding aplicado a '{col}': {len(unique_vals)} categorías")
@@ -351,12 +365,14 @@ def apply_one_hot_encoding(
         if col in df_encoded.columns:
             n_unique = df_encoded[col].nunique()
             
+            # Evitar explosión dimensional: si hay demasiadas categorías,
+            # no aplicamos OHE automáticamente.
             if n_unique > max_categories:
                 print(f"⚠️  '{col}' tiene {n_unique} categorías (> {max_categories}). "
                       f"Se recomienda Label Encoding o agrupación.")
                 continue
             
-            # Crear dummies
+            # Crear variables dummy (0/1) para cada categoría (excepto la de referencia)
             dummies = pd.get_dummies(
                 df_encoded[col],
                 prefix=col,
@@ -401,6 +417,7 @@ def standardize_variables(
     scaling_params = {}
     
     for col in columns:
+        # Saltar columnas inexistentes o no numéricas
         if col not in df_scaled.columns:
             continue
             
@@ -410,14 +427,16 @@ def standardize_variables(
         values = df_scaled[col].dropna()
         
         if method == 'zscore':
+            # Media y desviación estándar (Z-score)
             mean = values.mean()
             std = values.std()
             if std == 0:
-                std = 1  # Evitar división por cero
+                std = 1  # Evitar división por cero en caso de varianza nula
             df_scaled[f'{col}_zscore'] = (df_scaled[col] - mean) / std
             scaling_params[col] = {'method': 'zscore', 'mean': float(mean), 'std': float(std)}
             
         elif method == 'minmax':
+            # Escalado al rango [0,1]
             min_val = values.min()
             max_val = values.max()
             range_val = max_val - min_val
@@ -427,6 +446,7 @@ def standardize_variables(
             scaling_params[col] = {'method': 'minmax', 'min': float(min_val), 'max': float(max_val)}
             
         elif method == 'robust':
+            # Escalado robusto usando mediana e IQR (resistente a outliers)
             median = values.median()
             q75 = values.quantile(0.75)
             q25 = values.quantile(0.25)
@@ -465,6 +485,7 @@ def detect_and_handle_outliers(
     outlier_counts = {}
     
     for col in columns:
+        # Validaciones iniciales: columna presente y numérica
         if col not in df_processed.columns:
             continue
         if not pd.api.types.is_numeric_dtype(df_processed[col]):
@@ -472,6 +493,7 @@ def detect_and_handle_outliers(
         
         values = df_processed[col].dropna()
         
+        # Calcular límites según método elegido
         if method == 'iqr':
             q75 = values.quantile(0.75)
             q25 = values.quantile(0.25)
@@ -484,12 +506,13 @@ def detect_and_handle_outliers(
             lower_bound = mean - 3 * std
             upper_bound = mean + 3 * std
         
-        # Identificar outliers
+        # Identificar outliers según los límites
         outlier_mask = (df_processed[col] < lower_bound) | (df_processed[col] > upper_bound)
         n_outliers = outlier_mask.sum()
         outlier_counts[col] = int(n_outliers)
         
         if n_outliers > 0:
+            # Acciones disponibles: marcar, recortar (cap) o eliminar filas
             if action == 'flag':
                 df_processed[f'{col}_outlier'] = outlier_mask.astype(int)
             elif action == 'cap':
@@ -517,6 +540,7 @@ def generate_transformation_report(
     """
     report_path = output_path / 'transformation_report.json'
     
+    # Serializamos el diccionario de transformaciones a JSON legible
     with open(report_path, 'w', encoding='utf-8') as f:
         json.dump(transformations, f, indent=2, ensure_ascii=False)
     
@@ -551,7 +575,7 @@ def prepare_data(
     print("🔧 PREPARACIÓN DE DATOS - Pipeline de Transformaciones")
     print("=" * 70)
     
-    # Crear directorio de salida
+    # Crear (si no existe) el directorio donde se guardarán los resultados
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
@@ -568,6 +592,7 @@ def prepare_data(
     print("📋 PASO 1: Análisis y Manejo de Valores Faltantes")
     print("=" * 70)
     
+    # Analizamos por columna cuántos y qué porcentaje de valores faltan
     missing_report = analyze_missing_values(df_original)
     
     total_missing = missing_report['valores_faltantes'].sum()
@@ -592,6 +617,7 @@ def prepare_data(
     print("📋 PASO 2: Identificación de Tipos de Variables")
     print("=" * 70)
     
+    # Identificamos variables categóricas, numéricas, binarias y objetivo
     var_types = identify_variable_types(df_clean)
     print(f"\n   Variables categóricas (codificadas): {len(var_types['categorical_coded'])}")
     print(f"   Variables binarias: {len(var_types['binary'])}")
@@ -605,6 +631,7 @@ def prepare_data(
     print("📋 PASO 3: Codificación de Variable Objetivo")
     print("=" * 70)
     
+    # Codificamos `Target` en una nueva columna `_encoded` para modelado
     df_encoded, target_mapping = encode_target_variable(df_clean)
     all_transformations['target_encoding'] = target_mapping
     
@@ -615,6 +642,7 @@ def prepare_data(
     print(f"\n   Método seleccionado: {scaling_method}")
     print("   Justificación: Permite comparar variables en diferentes escalas\n")
     
+    # Seleccionamos las columnas numéricas continuas detectadas
     numeric_cols = var_types['numeric_continuous']
     df_scaled, scaling_params = standardize_variables(
         df_encoded, 
@@ -624,6 +652,7 @@ def prepare_data(
     all_transformations['scaling_params'] = scaling_params
     
     # 5. DETECCIÓN DE OUTLIERS (opcional)
+    # Paso opcional: detectar y manejar outliers según parámetros
     if handle_outliers:
         print("\n" + "=" * 70)
         print("📋 PASO 5: Detección y Manejo de Outliers")
@@ -644,7 +673,7 @@ def prepare_data(
     print("📋 PASO 6: Guardando Resultados")
     print("=" * 70)
     
-    # Guardar dataset preparado
+    # Guardar dataset preparado en CSV (sin índice)
     prepared_path = output_path / 'dataset_prepared.csv'
     df_final.to_csv(prepared_path, index=False)
     print(f"\n✅ Dataset preparado guardado en: {prepared_path}")

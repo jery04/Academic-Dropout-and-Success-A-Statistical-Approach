@@ -1,23 +1,39 @@
-"""
-EDA script for the project dataset
-Usage:
-    python "d:/Cibernética/Statistics project/scripts/data_visualization.py" --input "d:/Cibernética/Statistics project/dataset/dataset.csv" --out "d:/Cibernética/Statistics project/outputs/data_visualization"
+"""data_visualization.py
+Script de EDA (Exploratory Data Analysis) para el proyecto.
 
-Generates:
-- Descriptive stats CSV
-- Missing values report
-- Plots: histograms, boxplots, scatter for top correlations, correlation heatmap
-- A short markdown summary with initial findings
+Uso (ejemplo):
+    python "d:/Cibernética/Statistics project/scripts/data_visualization.py" \
+        --input "d:/Cibernética/Statistics project/dataset/dataset.csv" \
+        --out "d:/Cibernética/Statistics project/outputs/data_visualization"
 
-Designed to be robust to varied datasets (infers numeric/categorical columns).
+Salida esperada:
+- CSV de estadísticas descriptivas (si se implementa)
+- Informes de valores faltantes (si se implementa)
+- Imágenes: histogramas, boxplots, scatterplots, gráficos comparativos
+- Resumen breve (si se implementa)
+
+El objetivo principal: generar gráficos automáticamente de forma robusta
+cuando el conjunto de datos puede variar (detecta columnas numéricas,
+intenta inferir columna objetivo, etc.).
+
+He añadido comentarios en español a lo largo del script para aclarar
+qué hace cada bloque y por qué se toman ciertas decisiones.
 """
 import argparse
 import re
 from pathlib import Path
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# Bibliotecas:
+# - argparse: parseo de argumentos de línea de comandos
+# - re: sanitizar nombres de fichero (expresiones regulares)
+# - pathlib.Path: manejo de rutas (multiplataforma)
+# - pandas/numpy: manipulación de datos
+# - matplotlib/seaborn: visualización
 
 def safe_filename(name: str) -> str:
     """Sanitiza una cadena para que sea segura como nombre de archivo.
@@ -32,7 +48,8 @@ def safe_filename(name: str) -> str:
     Returns:
         str: Cadena resultante válida como nombre de fichero.
     """
-    # Replace problematic characters with underscore
+    # Reemplaza caracteres que suelen causar problemas en nombres de fichero
+    # por un guion bajo. Se asegura de devolver siempre una cadena.
     return re.sub(r'[<>:"/\\|?*]', '_', str(name))
 
 def generate_histograms(df, numeric, out_dir, show=False):
@@ -51,14 +68,18 @@ def generate_histograms(df, numeric, out_dir, show=False):
     """
     hist_dir = out_dir / 'histograms'
     hist_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Para cada columna numérica, guardamos un histograma con KDE.
+    # Se usa dropna() para evitar que los NaN distorsionen la gráfica.
     for c in numeric:
         plt.figure(figsize=(6, 4))
         sns.histplot(df[c].dropna(), kde=True)
         plt.title(f'Histogram: {c}')
         plt.tight_layout()
+        # Nombre seguro para evitar caracteres no válidos en el sistema de ficheros
         plt.savefig(hist_dir / f'hist_{safe_filename(c)}.png', dpi=150)
         if show:
+            # Opción para mostrar en pantalla además de guardar
             plt.show()
         plt.close()
 
@@ -78,7 +99,9 @@ def generate_boxplots(df, numeric, out_dir, show=False):
     """
     box_dir = out_dir / 'boxplots'
     box_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Boxplots por columna numérica. Se muestran outliers por defecto,
+    # lo cual es útil en EDA para detectar valores extremos.
     for c in numeric:
         plt.figure(figsize=(6, 3))
         sns.boxplot(x=df[c].dropna())
@@ -107,7 +130,11 @@ def generate_scatterplots(df, numeric, out_dir, show=False):
     """
     scatter_dir = out_dir / 'scatterplots'
     scatter_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Genera scatterplots para cada par único de variables numéricas
+    # (combinaciones sin repetición). Si hay muchas columnas esto puede
+    # generar muchas imágenes; en datasets muy grandes podría filtrarse
+    # por correlación alta para reducir el número de pares.
     if len(numeric) >= 2:
         for i in range(len(numeric)):
             for j in range(i + 1, len(numeric)):
@@ -123,6 +150,72 @@ def generate_scatterplots(df, numeric, out_dir, show=False):
                 plt.close()
 
 
+def generate_target_piechart(df, out_dir, target_col='Target', show=False):
+    """Genera y guarda un gráfico de pastel con la distribución de estado del estudiante.
+
+    Cuenta cuántos son `graduado`, `abandonado` y los que siguen estudiando (`en_estudio`).
+    Busca la columna `target_col` o una candidata parecida si no existe.
+    """
+    # Aseguramos que exista el directorio de salida
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Función auxiliar para normalizar distintas formas de representar la etiqueta
+    def classify_target(val):
+        if pd.isna(val):
+            return None
+        # Si la columna es numérica, se asume la convención 1=graduado, 0=abandonado
+        if isinstance(val, (int, np.integer, float, np.floating)):
+            if val == 1:
+                return 'graduado'
+            if val == 0:
+                return 'abandonado'
+        s = str(val).lower()
+        if any(k in s for k in ('grad', 'success', 'aprob', 'pass', 'passed')):
+            return 'graduado'
+        if any(k in s for k in ('drop', 'aband', 'fail', 'deser', 'abandono')):
+            return 'abandonado'
+        return 'en_estudio'
+
+    # Intentamos usar la columna explícita `target_col`; si no existe,
+    # buscamos una columna parecida (target/status/result). Si no hay
+    # candidatas, asumimos que todos siguen estudiando.
+    if target_col in df.columns:
+        labels = df[target_col].apply(classify_target)
+    else:
+        candidates = [c for c in df.columns if any(k in c.lower() for k in ('target', 'status', 'result'))]
+        if candidates:
+            labels = df[candidates[0]].apply(classify_target)
+        else:
+            print('No se encontró columna target; todos los registros marcados como en_estudio.')
+            labels = pd.Series(['en_estudio'] * len(df), index=df.index)
+
+    # Conteo de cada categoría para construir el pie chart
+    counts = labels.value_counts()
+    graduado = int(counts.get('graduado', 0))
+    abandonado = int(counts.get('abandonado', 0))
+    en_estudio = int(counts.get('en_estudio', 0))
+
+    sizes = [graduado, abandonado, en_estudio]
+    names = ['Graduados', 'Desertores', 'Siguen estudiando']
+
+    # Si no hay observaciones útiles, no intentamos dibujar el gráfico
+    if sum(sizes) == 0:
+        print('No hay datos para generar el gráfico de pastel.')
+        return
+
+    # Dibujar y guardar el gráfico de pastel
+    plt.figure(figsize=(6, 6))
+    colors = sns.color_palette('pastel')[0:3]
+    plt.pie(sizes, labels=names, autopct='%1.1f%%', startangle=90, colors=colors)
+    plt.title('Distribución: Graduados / Desertores / Siguen estudiando')
+    plt.tight_layout()
+    out_file = out_dir / f'pie_{safe_filename(target_col)}.png'
+    plt.savefig(out_file, dpi=150)
+    if show:
+        plt.show()
+    plt.close()
+    print('Gráfico de pastel guardado en:', out_file)
+
 def generate_overlaid_rendimiento_histogram(df, out_dir, target_col='Target', show=False):
     """Genera un histograma superpuesto de rendimiento para dos grupos: graduados y abandonos.
 
@@ -131,21 +224,25 @@ def generate_overlaid_rendimiento_histogram(df, out_dir, target_col='Target', sh
 
     El resultado se guarda en `out_dir/histograms/overlaid_rendimiento_<target_col>.png`.
     """
+    # Usamos out_dir directamente para guardar el histograma agregado
     hist_dir = out_dir 
     hist_dir.mkdir(parents=True, exist_ok=True)
 
     # Buscar columnas de nota (grade)
+    # Buscamos columnas que contengan 'grade' (puede haber varias por semestre).
+    # Si no hay tales columnas, como fallback usamos todas las numéricas.
     grade_cols = [c for c in df.columns if 'grade' in c.lower()]
     if not grade_cols:
-        # Fallback: usar todas las columnas numéricas si no hay columnas con 'grade'
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         if not numeric_cols:
             print('No se encontraron columnas de nota ni numéricas para calcular rendimiento.')
             return
         grade_cols = numeric_cols
 
+    # Rendimiento por fila: media de columnas de nota (ignora NaN)
     rendimiento = df[grade_cols].mean(axis=1, skipna=True)
 
+    # Reutilizamos lógica de clasificación para etiquetas objetivo
     def classify_target(val):
         if pd.isna(val):
             return None
@@ -162,6 +259,7 @@ def generate_overlaid_rendimiento_histogram(df, out_dir, target_col='Target', sh
             return 'abandonado'
         return None
 
+    # Identificamos la columna objetivo de la misma forma que en otras funciones
     if target_col in df.columns:
         labels = df[target_col].apply(classify_target)
     else:
@@ -172,13 +270,16 @@ def generate_overlaid_rendimiento_histogram(df, out_dir, target_col='Target', sh
         else:
             labels = pd.Series([None] * len(df), index=df.index)
 
+    # Construimos un DataFrame temporal con rendimiento y etiqueta
     plot_df = pd.DataFrame({'rendimiento': rendimiento, 'label': labels})
+    # Eliminamos filas sin rendimiento o sin etiqueta
     plot_df = plot_df.dropna(subset=['rendimiento', 'label'])
 
     if plot_df.empty:
         print('No hay datos suficientes para el histograma superpuesto (falta etiqueta o notas).')
         return
 
+    # Dibujar histogramas superpuestos por etiqueta (densidad)
     plt.figure(figsize=(8, 5))
     sns.histplot(
         data=plot_df,
@@ -204,6 +305,8 @@ def generate_overlaid_rendimiento_boxplot(df, out_dir, target_col='Target', show
 
     Guarda el archivo en `out_dir/boxplots/overlaid_rendimiento_box_<target_col>.png`.
     """
+    # Guardamos el boxplot en el directorio principal de salida (o se puede
+    # cambiar a out_dir / 'boxplots' para mantener consistencia).
     box_dir = out_dir 
     box_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,12 +369,16 @@ def generate_overlaid_rendimiento_scatter(df, out_dir, target_col='Target', show
     usa `rendimiento` frente a la primera columna numérica disponible.
     Guarda el archivo en `out_dir/scatterplots/overlaid_rendimiento_scatter_<target_col>.png`.
     """
+    # Directoriio de salida para scatterplots agregados
     scatter_dir = out_dir 
     scatter_dir.mkdir(parents=True, exist_ok=True)
 
     grade_cols = [c for c in df.columns if 'grade' in c.lower()]
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
+    # Si existen al menos dos columnas de nota, las usamos como eje X e Y.
+    # De lo contrario construimos un par con una columna numérica y el
+    # rendimiento promedio por fila.
     if len(grade_cols) >= 2:
         x_col, y_col = grade_cols[0], grade_cols[1]
         x = df[x_col]
@@ -295,6 +402,7 @@ def generate_overlaid_rendimiento_scatter(df, out_dir, target_col='Target', show
         y = rendimiento
         xlabel, ylabel = x_col, 'rendimiento'
 
+    # Clasificación de la etiqueta objetivo para colorear puntos
     def classify_target(val):
         if pd.isna(val):
             return None
@@ -319,6 +427,7 @@ def generate_overlaid_rendimiento_scatter(df, out_dir, target_col='Target', show
         else:
             labels = pd.Series([None] * len(df), index=df.index)
 
+    # DataFrame para graficar: columnas seleccionadas + etiqueta
     plot_df = pd.DataFrame({xlabel: x, ylabel: y, 'label': labels})
     plot_df = plot_df.dropna(subset=[xlabel, ylabel, 'label'])
 
@@ -352,12 +461,19 @@ def main(input_path, out_dir, display=False):
     Returns:
         None
     """
+    # Aseguramos el directorio de salida
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Lectura del CSV. `low_memory=False` evita advertencias sobre tipos al
+    # concatenar fragmentos; `encoding='utf-8'` es la opción estándar.
     df = pd.read_csv(input_path, encoding='utf-8', low_memory=False)
+
+    # Detectar columnas numéricas para decidir qué gráficos generar
     numeric = df.select_dtypes(include=[np.number]).columns.tolist()
 
+    # Generación de gráficos básicos. Se podrían añadir más llamadas
+    # (piechart, overlaid_rendimiento, etc.) según se requiera.
     generate_histograms(df, numeric, out_dir, show=display)
     generate_boxplots(df, numeric, out_dir, show=display)
     generate_scatterplots(df, numeric, out_dir, show=display)

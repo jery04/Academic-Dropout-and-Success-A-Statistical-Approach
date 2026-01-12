@@ -18,12 +18,6 @@ Un enfoque estadístico para estudiar el abandono y el éxito académico en estu
 2. ¿Qué variables socioeconómicas y académicas influyen más en la probabilidad de abandono y éxito? 🧾📊
 3. ¿Se puede predecir el abandono o éxito usando técnicas estadísticas y de clasificación? 🤖🔮
 
-**Sobre el dataset (variables clave)**
-- Estado civil, Modo de aplicación, Orden de aplicación, Curso, Turno (día/noche) 🧾
-- Calificación previa, Nacionalidad, Educación de los padres, Ocupaciones, Desplazado, NEE 🧑‍🎓
-- Deudor, Pago matrícula al día, Becado, Género, Internacional ✈️
-- Edad al matricular, Unidades curriculares (convalidadas/matriculadas/evaluadas/aprobadas) 🔢
-
 **Estructura del proyecto (sólo la estructura del proyecto) 🗂️🌈**
 
 ```
@@ -31,12 +25,38 @@ Proyecto-Estadistica-2025-2026/ 🌟
 |
 ├─ dataset/ 📁
 │  ├─ dataset.csv 📄    # Datos crudos (~4,424 filas)
-│  └─ README-dataset.md 📝  # Notas sobre el dataset y variables
-├─ digital presentation/ 🖼️
+│  └─ README.md 📝      # Notas sobre el dataset y variables
+├─ digital presentation (ppt)/ 🖼️
 │  └─ presentación.pptx 📽️  # Slides para defensa / exposición
 ├─ notebook/ 📓
-│  ├─ exploracion_datos_and_more.ipynb 🧭  # Todo el proceso realizado
-├─ Orientacion.pdf 📄  # Orientación del proyecto y requisitos a cumplir
-├─ propuesta_analisis.pdf 📄  # Propuesta de análisis para desarrollar y analizar empleando estadística
-└─ README.md 📘  # Este archivo
+│  └─ statistical_analysis.ipynb 🧭  # Análisis estadístico completo
+├─ outputs/ 📊
+│  ├─ data_visualization/ 📈    # Visualizaciones generadas
+│  │  ├─ boxplots/
+│  │  ├─ histograms/
+│  │  └─ scatterplots/
+│  ├─ descriptive_stats/ 📉     # Estadísticas descriptivas
+│  │  └─ descriptive_stats_summary.csv
+│  ├─ pattern_analysis/ 🔍      # Análisis de patrones
+│  │  ├─ pattern_analysis_report.json
+│  │  ├─ pattern_summary.txt
+│  │  └─ figures/
+│  ├─ performance_analysis/ ⚡   # Análisis de rendimiento
+│  │  ├─ analysis_report.json
+│  │  └─ figures/
+│  ├─ prediction_results/ 🎯    # Resultados de predicción
+│  │  ├─ classification_report.json
+│  │  └─ feature_importance.csv
+│  └─ prepared_data/ 🗃️         # Datos preparados y transformados
+│     ├─ dataset_prepared.csv
+│     └─ transformation_report.json
+├─ scripts/ 🐍
+│  ├─ data_preparation.py         # Preparación de datos
+│  ├─ data_visualization.py       # Generación de visualizaciones
+│  ├─ descriptive_stats.py        # Estadísticas descriptivas
+│  ├─ pattern_discovery.py        # Descubrimiento de patrones
+│  ├─ performance_analysis.py     # Análisis de rendimiento académico
+│  └─ predicting_success.py       # Modelo predictivo de éxito/abandono
+├─ requirements.txt 📦  # Dependencias del proyecto
+└─ README.md 📘         # Este archivo
 ```

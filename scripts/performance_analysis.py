@@ -476,8 +476,24 @@ def generate_report(df, grupo_abandono, grupo_no_abandono, normality_results, co
     
     return report
 
-def main():
-    """Función principal del análisis."""
+def main(input_path: str = None, output_dir: str = None):
+    """Función principal del análisis.
+    
+    Args:
+        input_path: Ruta al archivo CSV de datos. Si es None, usa el default.
+        output_dir: Directorio de salida. Si es None, usa el default.
+    """
+    global OUTPUT_DIR, FIGURES_DIR
+    
+    # Configurar directorios de salida
+    if output_dir is not None:
+        OUTPUT_DIR = output_dir
+        FIGURES_DIR = f"{OUTPUT_DIR}/figures"
+    
+    # Configurar ruta de entrada
+    if input_path is None:
+        input_path = 'outputs/prepared_data/dataset_prepared.csv'
+    
     print("\n" + "="*70)
     print("   ANÁLISIS DE RENDIMIENTO ACADÉMICO: ABANDONO vs GRADUACIÓN")
     print("   Pregunta: ¿Existe diferencia significativa en el rendimiento?")
@@ -487,7 +503,7 @@ def main():
     create_output_directories()
     
     # 1. Cargar datos
-    df = load_data('outputs/prepared_data/dataset_prepared.csv')
+    df = load_data(input_path)
     
     # 2. Identificar grupos
     grupo_abandono, grupo_no_abandono = identify_groups(df)

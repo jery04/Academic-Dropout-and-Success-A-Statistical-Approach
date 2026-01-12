@@ -1,16 +1,18 @@
 """
 Script para generar estadísticas descriptivas por variable.
 
-Genera en consola (en español) para cada variable:
-- media aritmética
-- mediana
-- moda
-- medidas de dispersión (mínimo, máximo, rango)
-- varianza
-- desviación estándar
-- rango intercuartílico
+Descripción general:
+- Lee un CSV con datos tabulares y calcula estadísticas básicas por columna.
+- Para variables numéricas calcula: media, mediana, moda, mínimo, máximo,
+    rango, varianza, desviación estándar y rango intercuartílico (IQR).
+- Para variables categóricas calcula la(s) moda(s) y muestra los valores más
+    frecuentes.
+- Guarda un archivo de texto por variable y un `descriptive_stats_summary.csv`
+    con un resumen para todas las variables en la carpeta de salida.
 
-Guarda un CSV resumen y un archivo de texto por variable dentro de outputs/descriptive_stats.
+Notas de uso:
+- Ejecutar como script desde la carpeta del proyecto o importarlo como módulo
+    llamando a `compute_descriptive_stats(df, out_dir)`.
 """
 import argparse
 from pathlib import Path
@@ -18,40 +20,60 @@ import re
 import pandas as pd
 import numpy as np
 
+# ----------------------------------------------------------------------------------
+# Comentarios generales sobre imports:
+# - `argparse` se usa para exponer una interfaz sencilla cuando se ejecuta
+#   el script desde la línea de comandos.
+# - `Path` (pathlib) facilita la manipulación de rutas multiplataforma.
+# - `re` se usa para sanitizar nombres de ficheros.
+# - `pandas` y `numpy` realizan la carga/transformación y los cálculos numéricos.
+# ----------------------------------------------------------------------------------
+
 def safe_filename(name: str) -> str:
         """Genera un nombre de fichero seguro reemplazando caracteres inválidos.
 
         Parámetros:
         - name: valor de entrada (normalmente el nombre de la variable) que puede
-            contener caracteres no permitidos en sistemas de archivos.
+            contener caracteres no permitidos en sistemas de archivos (por ejemplo
+            `:` o `\`).
 
         Retorna:
         - Una cadena con los caracteres inválidos sustituidos por guiones bajos.
+
+        Observación: convierte el argumento a `str` antes de aplicar la expresión
+        regular para evitar errores si se pasan tipos no string (p. ej. números).
         """
         return re.sub(r'[<>:"/\\|?*]', '_', str(name))
 
 def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
-    """Calcula y guarda estadísticas descriptivas para cada columna del DataFrame.
+    """Itera por columnas y calcula estadísticas, guardando resultados.
 
-    Para cada columna en `df` se calculan medidas principales (media, mediana,
-    moda, mínimo, máximo, rango, varianza, desviación estándar y rango
-    intercuartílico cuando aplica). Produce en consola un resumen en español
-    y guarda un archivo de texto por variable más un CSV resumen en `out_dir`.
-
-    Parámetros:
-    - df: DataFrame de pandas con los datos de entrada.
-    - out_dir: Path al directorio donde se guardarán los archivos de salida.
+    Comportamiento clave:
+    - Crea el directorio de salida si no existe.
+    - Para cada columna, elimina valores faltantes con `dropna()` antes de
+      calcular medidas.
+    - Si la serie resultante está vacía, se registran `NaN`/valores por defecto
+      en el resumen para mantener consistencia de columnas en el CSV final.
+    - Distingue entre columnas numéricas y categóricas usando
+      `pd.api.types.is_numeric_dtype`.
     """
+    # Asegurar que la carpeta de salida exista
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # `rows` acumulará un diccionario por variable para convertirlo en DataFrame
     rows = []
 
+    # Recorremos las columnas en el orden que presenta el DataFrame
     for col in df.columns:
+        # `s` es la serie sin valores NA para cálculos limpios
         s = df[col].dropna()
-        # Prepare a dict of results; handle non-numeric gracefully
+        # Inicializamos el registro para esta variable
         result = {'variable': str(col)}
 
+        # Caso: columna sin datos válidos
         if s.empty:
+            # Mantenemos las mismas claves que para variables numéricas,
+            # pero usando NaN o cadena vacía según el caso.
             result.update({
                 'media': np.nan,
                 'mediana': np.nan,
@@ -68,14 +90,16 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
             print("(sin datos válidos)\n")
 
         else:
-            # If numeric, compute full set; otherwise compute mode and simple dispersion
+            # Si es numérico, calculamos todas las medidas relevantes
             if pd.api.types.is_numeric_dtype(s):
+                # Convertimos a float para evitar objetos numpy en el CSV
                 mean = float(s.mean())
                 median = float(s.median())
-                modes = s.mode().tolist()
+                modes = s.mode().tolist()  # puede devolver múltiples modas
                 minimo = float(s.min())
                 maximo = float(s.max())
                 rango = maximo - minimo
+                # Varianza por defecto de pandas usa ddof=1 (muestra)
                 var = float(s.var())
                 std = float(s.std())
                 q75 = float(s.quantile(0.75))
@@ -94,7 +118,7 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                     'rango_intercuartilico': iqr,
                 })
 
-                # Imprimir en consola en español, línea por línea
+                # Salida humana por consola (útil para inspección rápida)
                 print(f"Variable: {col}")
                 print(f"media aritmética: {mean}")
                 print(f"mediana: {median}")
@@ -105,7 +129,8 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                 print(f"rango intercuartílico: {iqr}\n")
 
             else:
-                # Categorical / non-numeric: compute mode and counts
+                # Para variables no numéricas (categóricas) calculamos la(s) moda(s)
+                # y los valores más frecuentes (top 5) para dar contexto.
                 modes = s.mode().tolist()
                 top = s.value_counts().head(5).to_dict()
 
@@ -121,6 +146,7 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                     'rango_intercuartilico': np.nan,
                 })
 
+                # Impresión en consola indicando que las medidas numéricas no aplican
                 print(f"Variable: {col}")
                 print(f"media aritmética: N/A")
                 print(f"mediana: N/A")
@@ -131,13 +157,17 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                 print(f"rango intercuartílico: N/A")
                 print(f"valores más frecuentes (hasta 5): {top}\n")
 
+        # Añadimos el resultado acumulado para la columna actual
         rows.append(result)
 
-        # Guardar archivo de texto por variable
+        # Guardar archivo de texto por variable con la misma información
+        # `safe_filename` asegura que no haya caracteres inválidos en el nombre.
         file_path = out_dir / f"{safe_filename(col)}_stats.txt"
         with file_path.open('w', encoding='utf-8') as fh:
             fh.write(f"Variable: {col}\n")
-            # Write the same human-readable lines
+            # Escribimos las líneas de forma legible; para numéricas incluimos
+            # todas las medidas, mientras que para otras escribimos N/A cuando
+            # correspondan.
             if pd.api.types.is_numeric_dtype(s) and not s.empty:
                 fh.write(f"media aritmética: {result['media']}\n")
                 fh.write(f"mediana: {result['mediana']}\n")
@@ -151,7 +181,8 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                 fh.write(f"mediana: N/A\n")
                 fh.write(f"moda: {result['moda']}\n")
 
-    # Guardar resumen CSV
+    # Convertimos la lista de dicts a DataFrame y la guardamos como CSV resumen.
+    # Esto permite una revisión programática posterior (p. ej. para gráficos).
     summary_df = pd.DataFrame(rows)
     summary_csv = out_dir / 'descriptive_stats_summary.csv'
     summary_df.to_csv(summary_csv, index=False, encoding='utf-8')
