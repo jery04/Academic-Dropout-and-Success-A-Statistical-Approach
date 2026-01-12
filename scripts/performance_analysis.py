@@ -16,24 +16,33 @@ Proceso:
 5. Prueba estadística comparativa
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy import stats
+# ============================================================================
+# IMPORTACIÓN DE LIBRERÍAS
+# ============================================================================
+import pandas as pd              # Manipulación y análisis de datos tabulares
+import numpy as np               # Operaciones numéricas y cálculos matemáticos
+import matplotlib.pyplot as plt  # Creación de gráficos y visualizaciones
+import seaborn as sns            # Visualizaciones estadísticas mejoradas
+from scipy import stats          # Funciones estadísticas generales
+# Importaciones específicas para pruebas estadísticas:
 from scipy.stats import shapiro, mannwhitneyu, ttest_ind, levene
-import warnings
-import os
-import json
-from datetime import datetime
+import warnings                  # Manejo de advertencias
+import os                        # Operaciones del sistema de archivos
+import json                      # Lectura/escritura de archivos JSON
+from datetime import datetime    # Manejo de fechas
 
+# Suprimir advertencias para una salida más limpia
 warnings.filterwarnings('ignore')
 
-# Configuración de estilo para gráficos
+# ============================================================================
+# CONFIGURACIÓN VISUAL Y DIRECTORIOS
+# ============================================================================
+# Estilo de gráficos: fondo blanco con cuadrícula suave
 plt.style.use('seaborn-v0_8-whitegrid')
+# Paleta de colores diversa para mejor distinción visual
 sns.set_palette("husl")
 
-# Directorios de salida
+# Directorios de salida para resultados y figuras
 OUTPUT_DIR = "outputs/performance_analysis"
 FIGURES_DIR = f"{OUTPUT_DIR}/figures"
 
@@ -93,11 +102,19 @@ def create_performance_variable(df, grupo_abandono, grupo_no_abandono):
     """
     Crear la variable de rendimiento: Tasa de Aprobación del 1er semestre.
     
+    Esta es la variable clave para el análisis comparativo. Mide el éxito
+    académico temprano del estudiante como proxy de su desempeño general.
+    
     Fórmula:
-    Tasa_aprobacion = Curricular units 1st sem (approved) / Curricular units 1st sem (enrolled)
+    Tasa_aprobacion = Unidades Aprobadas / Unidades Matriculadas
+    
+    Interpretación:
+    - 0.0 = No aprobó ninguna materia
+    - 0.5 = Aprobó la mitad de las materias
+    - 1.0 = Aprobó todas las materias matriculadas
     
     Manejo de casos especiales:
-    - Si enrolled = 0, la tasa se asigna como 0
+    - Si enrolled = 0 (sin matrícula), la tasa se asigna como 0
     """
     print(f"\n{'='*60}")
     print("3️⃣  CREACIÓN DE VARIABLE DE RENDIMIENTO")
@@ -115,13 +132,14 @@ def create_performance_variable(df, grupo_abandono, grupo_no_abandono):
     print(f"  - Matriculadas: '{col_enrolled}'")
     
     # Crear tasa de aprobación para todo el dataframe
+    # np.where aplica la división solo cuando hay materias matriculadas
     df['Tasa_aprobacion_1sem'] = np.where(
         df[col_enrolled] > 0,
         df[col_approved] / df[col_enrolled],
-        0  # Si no hay unidades matriculadas, tasa = 0
+        0  # Si no hay unidades matriculadas, tasa = 0 (evita división por cero)
     )
     
-    # Crear tasa para 2do semestre también
+    # Crear tasa para 2do semestre también (para análisis complementarios)
     col_approved_2 = 'Curricular units 2nd sem (approved)'
     col_enrolled_2 = 'Curricular units 2nd sem (enrolled)'
     
@@ -131,10 +149,11 @@ def create_performance_variable(df, grupo_abandono, grupo_no_abandono):
         0
     )
     
-    # Tasa promedio de ambos semestres
+    # Tasa promedio de ambos semestres: visión global del rendimiento
+    # Promedio simple de ambas tasas
     df['Tasa_aprobacion_promedio'] = (df['Tasa_aprobacion_1sem'] + df['Tasa_aprobacion_2sem']) / 2
     
-    # Actualizar los grupos con las nuevas columnas
+    # Actualizar los grupos con las nuevas columnas calculadas
     grupo_abandono = df[df['Target'] == 'Dropout'].copy()
     grupo_no_abandono = df[df['Target'] == 'Graduate'].copy()
     
@@ -219,17 +238,26 @@ def normality_tests(grupo_abandono, grupo_no_abandono):
     """
     Realizar pruebas de normalidad para decidir qué prueba estadística usar.
     
+    Importancia:
+    Esta prueba determina si podemos usar pruebas paramétricas (como t-test)
+    que asumen normalidad, o debemos usar pruebas no paramétricas (Mann-Whitney).
+    
     Prueba de Shapiro-Wilk:
+    - Es una de las pruebas de normalidad más potentes para muestras pequeñas
     - H0: Los datos siguen una distribución normal
     - H1: Los datos NO siguen una distribución normal
-    - Si p-value < 0.05: Rechazamos H0 → NO es normal
+    - Si p-value < 0.05: Rechazamos H0 → distribución NO es normal
+    - Si p-value >= 0.05: No rechazamos H0 → podemos asumir normalidad
+    
+    Limitación:
+    - Máximo 5000 observaciones, por lo que se usa muestreo si es necesario
     """
     print(f"\n{'='*60}")
     print("5️⃣  PRUEBAS DE NORMALIDAD (Shapiro-Wilk)")
     print('='*60)
     
     variable = 'Tasa_aprobacion_1sem'
-    alpha = 0.05
+    alpha = 0.05  # Nivel de significancia estándar
     
     results = {}
     
@@ -301,12 +329,28 @@ def normality_tests(grupo_abandono, grupo_no_abandono):
 
 def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     """
-    Realizar la prueba estadística para comparar los grupos:
-    H0: No hay diferencia significativa en el rendimiento entre grupos
-    H1: Existe diferencia significativa en el rendimiento entre grupos
+    Realizar la prueba estadística para comparar los grupos.
     
-    Si ambos son normales: t-test de Student (paramétrico)
-    Si no son normales: Mann-Whitney U (no paramétrico)
+    Esta es la prueba central del análisis que responde a la pregunta:
+    "¿Hay diferencia significativa en el rendimiento entre los grupos?"
+    
+    Hipótesis:
+    - H0 (nula): No hay diferencia significativa en el rendimiento entre grupos
+    - H1 (alternativa): Existe diferencia significativa en el rendimiento
+    
+    Selección de prueba:
+    - Si ambos son normales: t-test de Student (paramétrico)
+      * Más potente cuando se cumplen supuestos
+      * Incluye verificación de homogeneidad de varianzas (Levene)
+    - Si no son normales: Mann-Whitney U (no paramétrico)
+      * Más robusto ante violaciones de normalidad
+      * Compara rangos en lugar de medias
+    
+    Tamaño del efecto (Cohen's d):
+    - Mide la magnitud práctica de la diferencia
+    - d < 0.2: efecto pequeño
+    - d ~ 0.5: efecto mediano
+    - d > 0.8: efecto grande
     """
     print(f"\n{'='*60}")
     print("6️⃣  PRUEBA ESTADÍSTICA COMPARATIVA")
@@ -354,14 +398,19 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
         stat_test, p_value = mannwhitneyu(data_abandono, data_no_abandono, alternative='two-sided')
         test_name = "Mann-Whitney U"
     
-    # Calcular tamaño del efecto (Cohen's d)
+    # =========================================================================
+    # CÁLCULO DEL TAMAÑO DEL EFECTO (Cohen's d)
+    # =========================================================================
+    # Cohen's d cuantifica la diferencia en términos de desviaciones estándar.
+    # Fórmula: d = (media1 - media2) / desviación_estándar_agrupada
+    # Esto permite evaluar la importancia práctica, no solo estadística.
     cohens_d = (data_no_abandono.mean() - data_abandono.mean()) / np.sqrt(
         ((len(data_abandono) - 1) * data_abandono.std()**2 + 
          (len(data_no_abandono) - 1) * data_no_abandono.std()**2) / 
         (len(data_abandono) + len(data_no_abandono) - 2)
     )
     
-    # Interpretar tamaño del efecto
+    # Interpretación del tamaño del efecto según convenciones de Cohen
     if abs(cohens_d) < 0.2:
         effect_interpretation = "pequeño"
     elif abs(cohens_d) < 0.5:
@@ -369,8 +418,9 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     elif abs(cohens_d) < 0.8:
         effect_interpretation = "mediano"
     else:
-        effect_interpretation = "grande"
+        effect_interpretation = "grande"  # Diferencia muy notable
     
+    # Determinar si el resultado es estadísticamente significativo
     significant = p_value < alpha
     
     print(f"\n{'─'*60}")
@@ -477,11 +527,29 @@ def generate_report(df, grupo_abandono, grupo_no_abandono, normality_results, co
     return report
 
 def main(input_path: str = None, output_dir: str = None):
-    """Función principal del análisis.
+    """
+    Función principal del análisis de rendimiento académico.
+    
+    Objetivo:
+    Responder a la pregunta: "¿Existe diferencia significativa en el 
+    rendimiento académico entre estudiantes que abandonaron y los que 
+    se graduaron?"
+    
+    Flujo de ejecución:
+    1. Cargar datos del dataset preparado
+    2. Identificar y separar grupos (Dropout vs Graduate)
+    3. Calcular variable de rendimiento (tasa de aprobación)
+    4. Análisis exploratorio con visualizaciones
+    5. Pruebas de normalidad (determinar tipo de prueba)
+    6. Prueba estadística comparativa
+    7. Generar reporte con conclusiones
     
     Args:
         input_path: Ruta al archivo CSV de datos. Si es None, usa el default.
         output_dir: Directorio de salida. Si es None, usa el default.
+    
+    Returns:
+        tuple: (DataFrame procesado, diccionario con reporte de resultados)
     """
     global OUTPUT_DIR, FIGURES_DIR
     

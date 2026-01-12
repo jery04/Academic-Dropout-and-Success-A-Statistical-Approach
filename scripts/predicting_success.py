@@ -1,64 +1,94 @@
 """
-Predicting Student Academic Success or Dropout
-===============================================
-This script applies Logistic Regression classification to predict whether a student
-will graduate or dropout from their studies.
+Predicción de Éxito o Abandono Académico Estudiantil
+=====================================================
+Este script aplica un modelo de Regresión Logística para predecir si un 
+estudiante se graduará o abandonará sus estudios.
 
-Research Question: "¿Es posible predecir el abandono académico o éxito de un estudiante 
+Pregunta de Investigación: 
+"¿Es posible predecir el abandono académico o éxito de un estudiante 
 utilizando técnicas estadísticas y de clasificación?"
 
-Author: Statistical Analysis Project
-Date: 2026
+Modelo utilizado: Regresión Logística
+- Ideal para clasificación binaria (Dropout vs Graduate)
+- Proporciona probabilidades interpretables
+- Permite analizar la importancia de cada variable
+- Robusto y bien establecido en la literatura
+
+Autor: Proyecto de Análisis Estadístico
+Fecha: 2026
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+# ============================================================================
+# IMPORTACIÓN DE LIBRERÍAS
+# ============================================================================
+import pandas as pd              # Manipulación de datos tabulares
+import numpy as np               # Operaciones numéricas y arrays
+import matplotlib.pyplot as plt  # Creación de gráficos
+import seaborn as sns            # Visualizaciones estadísticas
+# Librerías de scikit-learn para machine learning:
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression  # Modelo de clasificación
+from sklearn.preprocessing import StandardScaler     # Estandarización de features
+
+# Métricas de evaluación del modelo:
 from sklearn.metrics import (
     classification_report, confusion_matrix, accuracy_score,
     precision_score, recall_score, f1_score, roc_auc_score, roc_curve,
     precision_recall_curve, average_precision_score
 )
+# Selección de características (no usado activamente pero disponible):
 from sklearn.feature_selection import SelectKBest, f_classif, RFE
 import warnings
 import json
 import os
 from datetime import datetime
 
+# Suprimir advertencias para salida más limpia
 warnings.filterwarnings('ignore')
 
-# Set plot style
+# ============================================================================
+# CONFIGURACIÓN VISUAL
+# ============================================================================
+# Estilo de gráficos profesional con fondo blanco y cuadrícula
 plt.style.use('seaborn-v0_8-whitegrid')
-plt.rcParams['figure.figsize'] = (12, 8)
-plt.rcParams['font.size'] = 12
+plt.rcParams['figure.figsize'] = (12, 8)  # Tamaño por defecto de figuras
+plt.rcParams['font.size'] = 12            # Tamaño de fuente legible
 
 # ============================================================================
-# CONFIGURATION
+# CONFIGURACIÓN DE RUTAS Y PARÁMETROS
 # ============================================================================
 
-# Get the project root directory (parent of scripts folder)
+# Obtener directorio raíz del proyecto (padre de la carpeta scripts)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
+# Rutas de entrada y salida
 INPUT_PATH = os.path.join(PROJECT_ROOT, "outputs", "prepared_data", "dataset_prepared.csv")
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs", "prediction_results")
-RANDOM_STATE = 42
-TEST_SIZE = 0.20
 
-# Create output directory
+# Parámetros del modelo - importantes para reproducibilidad
+RANDOM_STATE = 42   # Semilla para reproducibilidad de resultados
+TEST_SIZE = 0.20    # 20% de datos para prueba, 80% para entrenamiento
+
+# Crear directorio de salida si no existe
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def load_and_prepare_data(filepath):
     """
-    Load the prepared dataset and filter for binary classification.
-    We exclude 'Enrolled' students and keep only 'Dropout' vs 'Graduate'.
+    Cargar el dataset preparado y filtrar para clasificación binaria.
+    
+    Filtramos solo 'Dropout' y 'Graduate' porque:
+    - 'Enrolled' son estudiantes aún activos sin resultado final
+    - Queremos predecir resultados definitivos, no estados intermedios
+    
+    La variable objetivo se codifica como:
+    - 1 = Graduate (Graduado - éxito)
+    - 0 = Dropout (Abandono)
+    
+    Esta codificación hace que el modelo prediga la probabilidad de éxito.
     """
     print("=" * 70)
-    print("LOADING AND PREPARING DATA FOR CLASSIFICATION")
+    print("CARGA Y PREPARACIÓN DE DATOS PARA CLASIFICACIÓN")
     print("=" * 70)
     
     df = pd.read_csv(filepath)
@@ -89,12 +119,21 @@ def load_and_prepare_data(filepath):
 
 def select_features(df):
     """
-    Select relevant features for the classification model.
-    Exclude derived columns (z-scores, outliers) and use original features.
+    Seleccionar características relevantes para el modelo de clasificación.
+    
+    Excluimos:
+    - Columnas derivadas (z-scores, marcadores de outliers) que podrían
+      causar fuga de datos o redundancia
+    - Variable objetivo y sus variantes
+    
+    Mantenemos solo las características originales del dataset para
+    que el modelo aprenda de información disponible al momento de
+    la predicción.
     """
-    # Original feature columns (excluding target and derived columns)
+    # Patrones a excluir de las features
     exclude_patterns = ['_zscore', '_outlier', 'Target', 'Target_encoded', 'Target_binary']
     
+    # Filtrar columnas que no contengan ninguno de los patrones excluidos
     feature_columns = [col for col in df.columns 
                        if not any(pattern in col for pattern in exclude_patterns)]
     
@@ -104,16 +143,24 @@ def select_features(df):
 
 def prepare_train_test_split(df, feature_columns):
     """
-    Prepare training and testing sets with stratification.
-    """
-    X = df[feature_columns]
-    y = df['Target_binary']
+    Preparar conjuntos de entrenamiento y prueba con estratificación.
     
+    Estratificación (stratify=y):
+    - Mantiene la misma proporción de clases en train y test
+    - Crucial cuando hay desbalance de clases
+    - Asegura evaluación representativa
+    
+    División típica: 80% entrenamiento, 20% prueba
+    """
+    X = df[feature_columns]   # Variables predictoras (features)
+    y = df['Target_binary']   # Variable objetivo (0=Dropout, 1=Graduate)
+    
+    # Dividir manteniendo proporción de clases
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, 
         test_size=TEST_SIZE, 
         random_state=RANDOM_STATE,
-        stratify=y
+        stratify=y  # Mantener proporción de Dropout/Graduate en ambos sets
     )
     
     print(f"\n📊 División de datos:")
@@ -129,33 +176,55 @@ def prepare_train_test_split(df, feature_columns):
 
 def scale_features(X_train, X_test):
     """
-    Standardize features for logistic regression.
+    Estandarizar features para regresión logística.
+    
+    La estandarización (StandardScaler) transforma cada variable para que tenga:
+    - Media = 0
+    - Desviación estándar = 1
+    
+    Importancia:
+    - La regresión logística es sensible a la escala de las variables
+    - Variables en diferentes escalas tendrían pesos incomparables
+    - Mejora la convergencia del algoritmo de optimización
+    
+    Nota: fit_transform en train, solo transform en test (evita fuga de datos)
     """
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    X_train_scaled = scaler.fit_transform(X_train)  # Ajustar y transformar
+    X_test_scaled = scaler.transform(X_test)        # Solo transformar
     
     return X_train_scaled, X_test_scaled, scaler
 
 def train_logistic_regression(X_train, y_train):
     """
-    Train logistic regression model with regularization.
+    Entrenar modelo de regresión logística con regularización.
+    
+    Parámetros del modelo:
+    - penalty='l2' (Ridge): regularización que previene sobreajuste
+    - C=1.0: fuerza de regularización (menor C = más regularización)
+    - solver='lbfgs': algoritmo de optimización eficiente
+    - class_weight='balanced': ajusta pesos para compensar desbalance de clases
+      * Da más importancia a la clase minoritaria
+      * Crucial cuando Dropout y Graduate no están 50-50
+    
+    La regresión logística modela la probabilidad de pertenecer a cada clase
+    usando una función sigmoide.
     """
     print("\n" + "=" * 70)
     print("ENTRENAMIENTO DEL MODELO DE REGRESIÓN LOGÍSTICA")
     print("=" * 70)
     
-    # Train model with L2 regularization
+    # Configurar y entrenar el modelo
     model = LogisticRegression(
-        penalty='l2',
-        C=1.0,  # Inverse of regularization strength
-        solver='lbfgs',
-        max_iter=1000,
+        penalty='l2',           # Regularización L2 (Ridge) para evitar sobreajuste
+        C=1.0,                  # Inverso de la fuerza de regularización
+        solver='lbfgs',         # Algoritmo de optimización quasi-Newton
+        max_iter=1000,          # Máximo de iteraciones para convergencia
         random_state=RANDOM_STATE,
-        class_weight='balanced'  # Handle class imbalance
+        class_weight='balanced' # Compensar desbalance entre clases
     )
     
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train)  # Ajustar modelo a datos de entrenamiento
     
     print("\n✅ Modelo entrenado exitosamente")
     print(f"   - Regularización: L2 (Ridge)")
@@ -166,15 +235,29 @@ def train_logistic_regression(X_train, y_train):
 
 def perform_cross_validation(model, X_train, y_train):
     """
-    Perform k-fold cross-validation to assess model stability.
+    Realizar validación cruzada k-fold para evaluar estabilidad del modelo.
+    
+    Validación cruzada (5-fold):
+    1. Divide los datos en 5 partes iguales
+    2. Entrena en 4 partes, evalúa en la 5ta
+    3. Repite 5 veces, cada parte siendo el conjunto de prueba una vez
+    4. Promedia los resultados
+    
+    Beneficios:
+    - Detecta sobreajuste (overfitting)
+    - Estima mejor el rendimiento real del modelo
+    - Proporciona medida de variabilidad (desv. estándar)
+    
+    StratifiedKFold mantiene la proporción de clases en cada fold.
     """
     print("\n" + "=" * 70)
     print("VALIDACIÓN CRUZADA (5-FOLD)")
     print("=" * 70)
     
+    # Configurar validación cruzada estratificada
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
     
-    # Cross-validation scores
+    # Evaluar múltiples métricas usando validación cruzada
     cv_accuracy = cross_val_score(model, X_train, y_train, cv=cv, scoring='accuracy')
     cv_precision = cross_val_score(model, X_train, y_train, cv=cv, scoring='precision')
     cv_recall = cross_val_score(model, X_train, y_train, cv=cv, scoring='recall')
@@ -202,15 +285,29 @@ def perform_cross_validation(model, X_train, y_train):
 
 def evaluate_model(model, X_test, y_test, feature_names):
     """
-    Comprehensive model evaluation on test set.
+    Evaluación completa del modelo en el conjunto de prueba.
+    
+    Métricas calculadas:
+    - Accuracy: proporción de predicciones correctas totales
+    - Precision: de los predichos como Graduate, ¿cuántos realmente lo son?
+    - Recall: de los Graduate reales, ¿cuántos identificamos?
+    - F1-Score: media armónica de precision y recall
+    - ROC-AUC: capacidad de distinguir entre clases (0.5=azar, 1=perfecto)
+    - Average Precision: resumen de curva precision-recall
+    
+    Matriz de confusión:
+    - Verdaderos Negativos (TN): Dropout predicho correctamente
+    - Falsos Positivos (FP): Dropout predicho como Graduate (error Tipo I)
+    - Falsos Negativos (FN): Graduate predicho como Dropout (error Tipo II)
+    - Verdaderos Positivos (TP): Graduate predicho correctamente
     """
     print("\n" + "=" * 70)
     print("EVALUACIÓN DEL MODELO EN CONJUNTO DE PRUEBA")
     print("=" * 70)
     
-    # Predictions
-    y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)[:, 1]
+    # Generar predicciones
+    y_pred = model.predict(X_test)              # Clase predicha (0 o 1)
+    y_pred_proba = model.predict_proba(X_test)[:, 1]  # Probabilidad de Graduate
     
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)
@@ -268,21 +365,34 @@ def evaluate_model(model, X_test, y_test, feature_names):
 
 def analyze_feature_importance(model, feature_names):
     """
-    Analyze and rank feature importance based on coefficients.
+    Analizar y clasificar la importancia de variables basada en coeficientes.
+    
+    En regresión logística, los coeficientes indican:
+    - Coeficiente > 0: aumenta probabilidad de Graduate
+    - Coeficiente < 0: aumenta probabilidad de Dropout
+    - Magnitud: fuerza del efecto
+    
+    Odds Ratio (OR) = exp(coeficiente):
+    - OR > 1: factor favorece graduación
+    - OR < 1: factor favorece abandono
+    - OR = 1: sin efecto
+    
+    Ejemplo: OR = 2.0 significa que por cada unidad de aumento en esa
+    variable, la probabilidad de graduarse se duplica.
     """
     print("\n" + "=" * 70)
     print("ANÁLISIS DE IMPORTANCIA DE VARIABLES")
     print("=" * 70)
     
-    # Get coefficients
+    # Obtener coeficientes del modelo entrenado
     coefficients = model.coef_[0]
     
-    # Create DataFrame with feature importance
+    # Crear DataFrame con métricas de importancia
     feature_importance = pd.DataFrame({
         'Feature': feature_names,
         'Coefficient': coefficients,
-        'Abs_Coefficient': np.abs(coefficients),
-        'Odds_Ratio': np.exp(coefficients)
+        'Abs_Coefficient': np.abs(coefficients),  # Valor absoluto para ordenar
+        'Odds_Ratio': np.exp(coefficients)        # Transformar a odds ratio
     }).sort_values('Abs_Coefficient', ascending=False)
     
     print("\n📊 Top 15 Variables más Importantes (por magnitud del coeficiente):")
@@ -319,7 +429,17 @@ def analyze_feature_importance(model, feature_names):
 def create_visualizations(model, X_test, y_test, y_pred, y_pred_proba, 
                           feature_importance, metrics, output_dir):
     """
-    Create comprehensive visualizations for the classification results.
+    Crear visualizaciones completas para los resultados de clasificación.
+    
+    Gráficos generados:
+    1. Matriz de confusión: visualiza aciertos y errores del modelo
+    2. Curva ROC: capacidad de discriminación a diferentes umbrales
+    3. Curva Precision-Recall: rendimiento en diferentes puntos de corte
+    4. Importancia de features: qué variables influyen más
+    5. Distribución de probabilidades: separación entre clases
+    6. Resumen de métricas: vista general del rendimiento
+    
+    También genera gráfico separado de Odds Ratios para interpretación.
     """
     print("\n" + "=" * 70)
     print("GENERACIÓN DE VISUALIZACIONES")
@@ -486,7 +606,20 @@ def save_results(metrics, cv_results, feature_importance, output_dir):
 
 def generate_conclusions(metrics, cv_results, feature_importance):
     """
-    Generate final conclusions and answer the research question.
+    Generar conclusiones finales y responder a la pregunta de investigación.
+    
+    Criterios de evaluación del rendimiento (basados en ROC-AUC):
+    - >= 0.85: Excelente - modelo muy confiable
+    - >= 0.75: Bueno - modelo útil para aplicaciones prácticas
+    - >= 0.65: Moderado - modelo tiene valor pero con limitaciones
+    - < 0.65: Limitado - requiere mejoras significativas
+    
+    Esta función proporciona:
+    - Respuesta directa a la pregunta de investigación
+    - Resumen de métricas clave
+    - Identificación de factores predictivos importantes
+    - Implicaciones prácticas para intervención
+    - Limitaciones y consideraciones éticas
     """
     print("\n" + "=" * 70)
     print("CONCLUSIONES Y RESPUESTA A LA PREGUNTA DE INVESTIGACIÓN")
@@ -579,7 +712,26 @@ en la predicción del abandono académico y éxito estudiantil:
 
 def main():
     """
-    Main execution function.
+    Función principal de ejecución del modelo predictivo.
+    
+    Flujo completo del pipeline de Machine Learning:
+    1. Cargar y preparar datos (filtrar, codificar variable objetivo)
+    2. Seleccionar features relevantes
+    3. Dividir en train/test con estratificación
+    4. Estandarizar features
+    5. Entrenar modelo de regresión logística
+    6. Validación cruzada para evaluar robustez
+    7. Evaluar en conjunto de prueba
+    8. Analizar importancia de variables
+    9. Generar visualizaciones
+    10. Guardar resultados
+    11. Generar conclusiones
+    
+    Resultados guardados en: outputs/prediction_results/
+    - classification_results.png: visualizaciones principales
+    - odds_ratio_analysis.png: análisis de odds ratios
+    - classification_report.json: métricas detalladas
+    - feature_importance.csv: importancia de variables
     """
     print("\n" + "=" * 70)
     print("  PREDICCIÓN DE ÉXITO/ABANDONO ACADÉMICO ESTUDIANTIL")

@@ -19,7 +19,6 @@ import json
 import re
 from pathlib import Path
 from typing import Tuple, Dict, Any, List
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -755,7 +754,6 @@ def main():
         handle_outliers=not args.no_outliers,
         outlier_action=args.outlier_action
     )
-
 
 if __name__ == '__main__':
     main()

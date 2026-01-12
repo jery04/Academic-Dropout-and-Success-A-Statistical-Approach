@@ -22,7 +22,6 @@ qué hace cada bloque y por qué se toman ciertas decisiones.
 import argparse
 import re
 from pathlib import Path
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -148,7 +147,6 @@ def generate_scatterplots(df, numeric, out_dir, show=False):
                 if show:
                     plt.show()
                 plt.close()
-
 
 def generate_target_piechart(df, out_dir, target_col='Target', show=False):
     """Genera y guarda un gráfico de pastel con la distribución de estado del estudiante.
