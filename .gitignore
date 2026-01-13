@@ -233,11 +233,6 @@ outputs/prepared_data/*.json
 # Keep directory structure with .gitkeep files
 !outputs/**/.gitkeep
 
-# Presentation files (PowerPoint, etc.)
-digital\ presentation\ (ppt)/*.pptx
-digital\ presentation\ (ppt)/*.ppt
-digital\ presentation\ (ppt)/~$*.pptx
-
 # Large dataset files (uncomment if needed)
 # dataset/*.csv
 # dataset/*.xlsx
