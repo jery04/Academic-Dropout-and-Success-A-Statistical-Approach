@@ -1,31 +1,21 @@
 """
-Script de Preparación de Datos para el análisis de abandono estudiantil.
-
 Este módulo implementa todas las transformaciones necesarias para que los datos
-sean aptos para el análisis estadístico y machine learning. Incluye:
-    - Manejo de valores faltantes
-    - Codificación de variables categóricas
-    - Estandarización/normalización de variables numéricas
-    - Generación de reportes de transformaciones aplicadas
+sean aptos para el análisis estadístico posterior
 
-Uso:
-    python scripts/data_preparation.py --input "dataset/dataset.csv" --output "outputs/prepared_data"
-
-Autor: Statistics Project
+Incluye:
+- Manejo de valores faltantes
+- Codificación de variables categóricas
+- Estandarización/normalización de variables numéricas
+- Generación de reportes de transformaciones aplicadas
 """
-
-import argparse
-import json
-import re
-from pathlib import Path
-from typing import Tuple, Dict, Any, List
-import numpy as np
-import pandas as pd
-from scipy import stats
-
-# =============================================================================
-# CONFIGURACIÓN DE VARIABLES
-# =============================================================================
+import argparse                     # Manejo de argumentos desde la línea de comandos
+import json                         # Lectura y escritura de datos en formato JSON
+import re                           # Expresiones regulares para búsqueda y reemplazo de patrones
+from pathlib import Path            # Manipulación de rutas y archivos de forma orientada a objetos
+from typing import Tuple, Dict, Any, List   # Anotaciones de tipos para mayor claridad y robustez
+import numpy as np                  # Operaciones numéricas y manejo eficiente de arreglos
+import pandas as pd                 # Análisis y manipulación de datos en DataFrames
+from scipy import stats             # Funciones estadísticas y pruebas inferenciales
 
 # Variables que representan códigos categóricos (aunque sean numéricas en el CSV)
 CATEGORICAL_CODED_VARS = [
@@ -85,10 +75,6 @@ def safe_filename(name: str) -> str:
     # por un guion bajo para evitar errores al crear archivos.
     # Se convierte a `str` para manejar valores no string de forma robusta.
     return re.sub(r'[<>:"/\\|?*]', '_', str(name))
-
-# =============================================================================
-# ANÁLISIS Y MANEJO DE VALORES FALTANTES
-# =============================================================================
 
 def analyze_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """Analiza los valores faltantes en el DataFrame.
@@ -208,10 +194,6 @@ def handle_missing_values(
             print(f"✓ {col}: {n_missing} valores faltantes imputados con {method}")
     
     return df_clean, transformations
-
-# =============================================================================
-# CODIFICACIÓN DE VARIABLES CATEGÓRICAS
-# =============================================================================
 
 def encode_target_variable(
     df: pd.DataFrame,
@@ -385,10 +367,6 @@ def apply_one_hot_encoding(
     
     return df_encoded, new_columns
 
-# =============================================================================
-# ESTANDARIZACIÓN Y NORMALIZACIÓN
-# =============================================================================
-
 def standardize_variables(
     df: pd.DataFrame,
     columns: List[str],
@@ -464,52 +442,119 @@ def detect_and_handle_outliers(
     columns: List[str],
     method: str = 'iqr',
     action: str = 'flag'
-) -> Tuple[pd.DataFrame, Dict[str, int]]:
+) -> Tuple[pd.DataFrame, Dict[str, Dict[str, Any]]]:
     """Detecta y maneja outliers en variables numéricas.
-    
-    Justificación:
-    Los outliers pueden distorsionar análisis estadísticos y modelos predictivos.
-    Se ofrece la opción de marcarlos (flag), recortarlos (cap) o eliminarlos (remove).
-    
+
+    Ahora tiene en cuenta la skewness (asimetría) de cada variable para ajustar
+    los límites de detección cuando se usa el método 'iqr'. Según la skewness
+    clasificamos la distribución como 'symmetric', 'right' o 'left' y aplicamos
+    multiplicadores asimétricos sobre el IQR para relajar o endurecer el
+    umbral en la cola correspondiente.
+
     Args:
         df: DataFrame con los datos.
         columns: Lista de columnas a analizar.
         method: Método de detección ('iqr' o 'zscore').
         action: Acción a tomar ('flag', 'cap', 'remove').
-    
+
     Returns:
-        Tuple con (DataFrame modificado, conteo de outliers por columna).
+        Tuple con (DataFrame modificado, diccionario con detalles por columna):
+        para cada columna devuelve: {
+            'n_outliers': int,
+            'skewness': float,
+            'skew_type': 'symmetric'|'right'|'left',
+            'lower_multiplier': float,
+            'upper_multiplier': float
+        }
     """
     df_processed = df.copy()
-    outlier_counts = {}
-    
+    outlier_details: Dict[str, Dict[str, Any]] = {}
+
     for col in columns:
         # Validaciones iniciales: columna presente y numérica
         if col not in df_processed.columns:
             continue
         if not pd.api.types.is_numeric_dtype(df_processed[col]):
             continue
-        
+
         values = df_processed[col].dropna()
-        
-        # Calcular límites según método elegido
+
+        # Default multipliers
+        lower_multiplier = 1.5
+        upper_multiplier = 1.5
+
         if method == 'iqr':
             q75 = values.quantile(0.75)
             q25 = values.quantile(0.25)
             iqr = q75 - q25
-            lower_bound = q25 - 1.5 * iqr
-            upper_bound = q75 + 1.5 * iqr
+
+            # Calcular skewness para adaptar los multiplicadores de forma conservadora
+            skew = float(values.skew()) if not values.empty else 0.0
+
+            # Si IQR es cero (muchos valores repetidos) usamos percentiles moderados
+            if iqr == 0:
+                skew_type = 'flat_or_repeated'
+                lower_bound = float(values.quantile(0.005))
+                upper_bound = float(values.quantile(0.995))
+                bounds_method = 'percentile'
+            else:
+                # Reglas más conservadoras para reducir falsos positivos
+                if abs(skew) < 0.5:
+                    # Distribución aproximadamente simétrica -> umbral amplio
+                    skew_type = 'symmetric'
+                    lower_multiplier = upper_multiplier = 3.0
+                    lower_bound = q25 - lower_multiplier * iqr
+                    upper_bound = q75 + upper_multiplier * iqr
+                    bounds_method = 'iqr'
+                elif 0.5 <= skew < 1.5:
+                    # Cola derecha moderada -> ser más permisivo en la cola superior
+                    skew_type = 'right'
+                    lower_multiplier = 1.5
+                    upper_multiplier = 3.0
+                    lower_bound = q25 - lower_multiplier * iqr
+                    upper_bound = q75 + upper_multiplier * iqr
+                    bounds_method = 'iqr'
+                elif skew >= 1.5:
+                    # Cola derecha fuerte -> usar percentil superior estricto para evitar marcar demasiados
+                    skew_type = 'right'
+                    lower_bound = q25 - 1.0 * iqr
+                    upper_bound = float(values.quantile(0.999))
+                    bounds_method = 'percentile_upper'
+                elif -1.5 < skew <= -0.5:
+                    # Cola izquierda moderada -> permisivo en la cola inferior
+                    skew_type = 'left'
+                    lower_multiplier = 3.0
+                    upper_multiplier = 1.5
+                    lower_bound = q25 - lower_multiplier * iqr
+                    upper_bound = q75 + upper_multiplier * iqr
+                    bounds_method = 'iqr'
+                else:  # skew <= -1.5
+                    # Cola izquierda fuerte -> usar percentil inferior estricto
+                    skew_type = 'left'
+                    lower_bound = float(values.quantile(0.001))
+                    upper_bound = q75 + 1.0 * iqr
+                    bounds_method = 'percentile_lower'
+
         elif method == 'zscore':
             mean = values.mean()
             std = values.std()
             lower_bound = mean - 3 * std
             upper_bound = mean + 3 * std
-        
+            skew = float(values.skew()) if not values.empty else 0.0
+            skew_type = 'n/a (zscore)'
+
         # Identificar outliers según los límites
         outlier_mask = (df_processed[col] < lower_bound) | (df_processed[col] > upper_bound)
-        n_outliers = outlier_mask.sum()
-        outlier_counts[col] = int(n_outliers)
-        
+        n_outliers = int(outlier_mask.sum())
+
+        outlier_details[col] = {
+            'n_outliers': n_outliers,
+            'skewness': float(skew),
+            'skew_type': skew_type,
+            'lower_multiplier': float(lower_multiplier),
+            'upper_multiplier': float(upper_multiplier)
+        }
+
         if n_outliers > 0:
             # Acciones disponibles: marcar, recortar (cap) o eliminar filas
             if action == 'flag':
@@ -518,14 +563,10 @@ def detect_and_handle_outliers(
                 df_processed[col] = df_processed[col].clip(lower=lower_bound, upper=upper_bound)
             elif action == 'remove':
                 df_processed = df_processed[~outlier_mask]
-            
-            print(f"✓ {col}: {n_outliers} outliers detectados (método: {method}, acción: {action})")
-    
-    return df_processed, outlier_counts
 
-# =============================================================================
-# GENERACIÓN DE REPORTES
-# =============================================================================
+            print(f"✓ {col}: {n_outliers} outliers detectados (método: {method}, acción: {action}, skew={skew:.3f}, tipo={skew_type})")
+
+    return df_processed, outlier_details
 
 def generate_transformation_report(
     transformations: Dict[str, Any],
@@ -545,9 +586,38 @@ def generate_transformation_report(
     
     print(f"\n📄 Reporte de transformaciones guardado en: {report_path}")
 
-# =============================================================================
-# FUNCIÓN PRINCIPAL
-# =============================================================================
+def add_first_semester_pass_rate(
+    df: pd.DataFrame,
+    approved_col: str = 'Curricular units 1st sem (approved)',
+    enrolled_col: str = 'Curricular units 1st sem (enrolled)',
+    new_col: str = 'Tasa_aprobacion_1sem'
+) -> pd.DataFrame:
+    """Añade la variable Tasa_aprobacion al DataFrame.
+
+    Fórmula: Tasa_aprobacion = approved / enrolled
+    Si enrolled == 0 -> 0. Si hay NaN en approved o enrolled -> NaN.
+    """
+    df_copy = df.copy()
+    # Convertir a numérico (coerce para manejar posibles strings)
+    df_copy[approved_col] = pd.to_numeric(df_copy.get(approved_col), errors='coerce')
+    df_copy[enrolled_col] = pd.to_numeric(df_copy.get(enrolled_col), errors='coerce')
+
+    def _rate(row):
+        en = row[enrolled_col]
+        ap = row[approved_col]
+        if not pd.isna(en) and en == 0:
+            return 0.0
+        if pd.isna(en) or pd.isna(ap):
+            return float('nan')
+        # Evitar división por cero por seguridad (aunque cubierto arriba)
+        try:
+            return float(ap) / float(en) if en != 0 else 0.0
+        except Exception:
+            return float('nan')
+
+    df_copy[new_col] = df_copy.apply(_rate, axis=1)
+    print(f"✓ Variable calculada '{new_col}' añadida al DataFrame")
+    return df_copy
 
 def prepare_data(
     input_path: str,
@@ -581,6 +651,12 @@ def prepare_data(
     # Cargar datos
     print(f"\n📂 Cargando datos desde: {input_path}")
     df_original = pd.read_csv(input_path)
+    
+    # 0. AÑADIR VARIABLE DE RENDIMIENTO: Tasa de Aprobación del 1er semestre
+    print("\n" + "=" * 70)
+    print("📋 PASO 0: Añadir Variable de Rendimiento")
+    print("=" * 70)
+    df_original = add_first_semester_pass_rate(df_original)
     print(f"   Dimensiones: {df_original.shape[0]:,} filas × {df_original.shape[1]} columnas")
     
     # Diccionario para almacenar todas las transformaciones
@@ -634,48 +710,62 @@ def prepare_data(
     df_encoded, target_mapping = encode_target_variable(df_clean)
     all_transformations['target_encoding'] = target_mapping
     
-    # 4. ESTANDARIZACIÓN DE VARIABLES NUMÉRICAS
-    print("\n" + "=" * 70)
-    print("📋 PASO 4: Estandarización de Variables Numéricas")
-    print("=" * 70)
-    print(f"\n   Método seleccionado: {scaling_method}")
-    print("   Justificación: Permite comparar variables en diferentes escalas\n")
-    
     # Seleccionamos las columnas numéricas continuas detectadas
     numeric_cols = var_types['numeric_continuous']
-    df_scaled, scaling_params = standardize_variables(
-        df_encoded, 
-        numeric_cols, 
-        method=scaling_method
-    )
-    all_transformations['scaling_params'] = scaling_params
-    
-    # 5. DETECCIÓN DE OUTLIERS (opcional)
-    # Paso opcional: detectar y manejar outliers según parámetros
+
+    # 4. DETECCIÓN DE OUTLIERS (opcional)
+    # Paso opcional: detectar y manejar outliers según parámetros.
+    # Detectamos outliers sobre los datos sin escalar (`df_encoded`) y
+    # luego aplicaremos la estandarización sobre el resultado.
     if handle_outliers:
         print("\n" + "=" * 70)
-        print("📋 PASO 5: Detección y Manejo de Outliers")
+        print("📋 PASO 4: Detección y Manejo de Outliers")
         print("=" * 70)
         
-        df_final, outlier_counts = detect_and_handle_outliers(
-            df_scaled,
+        df_after_outliers, outlier_counts = detect_and_handle_outliers(
+            df_encoded,
             numeric_cols,
             method='iqr',
             action=outlier_action
         )
         all_transformations['outliers'] = outlier_counts
     else:
-        df_final = df_scaled
+        df_after_outliers = df_encoded
+
+    # Guardar dataset hasta el Paso 4 (con columnas de outliers añadidas) y nada más
+    prepared_path = output_path / 'dataset_prepared.csv'
+    df_after_outliers.to_csv(prepared_path, index=False)
+    print(f"\n✅ Dataset (hasta paso 4, sin escalar) guardado en: {prepared_path}")
+    print(f"   Dimensiones intermedias: {df_after_outliers.shape[0]:,} filas × {df_after_outliers.shape[1]} columnas")
+
+
+    # 5. ESTANDARIZACIÓN DE VARIABLES NUMÉRICAS
+    print("\n" + "=" * 70)
+    print("📋 PASO 5: Estandarización de Variables Numéricas")
+    print("=" * 70)
+    print(f"\n   Método seleccionado: {scaling_method}")
+    print("   Justificación: Permite comparar variables en diferentes escalas\n")
+
+    # Estandarizamos sobre el DataFrame resultante tras el manejo de outliers
+    df_scaled, scaling_params = standardize_variables(
+        df_after_outliers,
+        numeric_cols,
+        method=scaling_method
+    )
+    all_transformations['scaling_params'] = scaling_params
+
+    # El dataset final para guardar será el escalado
+    df_final = df_scaled
     
     # 6. GUARDAR RESULTADOS
     print("\n" + "=" * 70)
     print("📋 PASO 6: Guardando Resultados")
     print("=" * 70)
     
-    # Guardar dataset preparado en CSV (sin índice)
-    prepared_path = output_path / 'dataset_prepared.csv'
-    df_final.to_csv(prepared_path, index=False)
-    print(f"\n✅ Dataset preparado guardado en: {prepared_path}")
+    # Guardar dataset estandarizado (último paso)
+    standardized_path = output_path / 'dataset_standardized.csv'
+    df_final.to_csv(standardized_path, index=False)
+    print(f"\n✅ Dataset estandarizado guardado en: {standardized_path}")
     print(f"   Dimensiones finales: {df_final.shape[0]:,} filas × {df_final.shape[1]} columnas")
     
     # Generar reportes
@@ -689,31 +779,32 @@ def prepare_data(
 
 def main():
     """Punto de entrada principal del script."""
+    
     parser = argparse.ArgumentParser(
         description='Script de preparación de datos para análisis estadístico',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
     Ejemplos de uso:
     python data_preparation.py --input dataset/dataset.csv --output outputs/prepared_data
-    python data_preparation.py --input dataset/dataset.csv --output outputs/prepared_data --scaling minmax
-    python data_preparation.py --input dataset/dataset.csv --output outputs/prepared_data --no-outliers
+    python data_preparation.py -i dataset/dataset.csv -o outputs/prepared_data --missing-strategy median
         """
     )
-    
+
+    # Argumentos esenciales: input, output y estrategia para valores faltantes
     parser.add_argument(
         '--input', '-i',
         type=str,
         default='dataset/dataset.csv',
         help='Ruta al archivo CSV de entrada (default: dataset/dataset.csv)'
     )
-    
+
     parser.add_argument(
         '--output', '-o',
         type=str,
         default='outputs/prepared_data',
         help='Directorio de salida para resultados (default: outputs/prepared_data)'
     )
-    
+
     parser.add_argument(
         '--missing-strategy',
         type=str,
@@ -721,38 +812,14 @@ def main():
         default='auto',
         help='Estrategia para manejar valores faltantes (default: auto)'
     )
-    
-    parser.add_argument(
-        '--scaling',
-        type=str,
-        choices=['zscore', 'minmax', 'robust'],
-        default='zscore',
-        help='Método de estandarización (default: zscore)'
-    )
-    
-    parser.add_argument(
-        '--no-outliers',
-        action='store_true',
-        help='Desactivar detección de outliers'
-    )
-    
-    parser.add_argument(
-        '--outlier-action',
-        type=str,
-        choices=['flag', 'cap', 'remove'],
-        default='flag',
-        help='Acción para outliers: flag=marcar, cap=recortar, remove=eliminar (default: flag)'
-    )
-    
+
     args = parser.parse_args()
-    
+
+    # Llamamos a prepare_data con los argumentos dados
     prepare_data(
         input_path=args.input,
         output_dir=args.output,
-        missing_strategy=args.missing_strategy,
-        scaling_method=args.scaling,
-        handle_outliers=not args.no_outliers,
-        outlier_action=args.outlier_action
+        missing_strategy=args.missing_strategy
     )
 
 if __name__ == '__main__':

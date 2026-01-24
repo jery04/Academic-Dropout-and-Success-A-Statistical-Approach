@@ -1,56 +1,89 @@
 """
-Performance Analysis Script - Análisis de Rendimiento Académico
-=================================================================
 Este script realiza el análisis comparativo de rendimiento académico 
 entre estudiantes que abandonaron (Dropout) vs los que se graduaron (Graduate).
 
 Pregunta de investigación:
-¿Existe diferencia significativa en el rendimiento académico entre 
-estudiantes que abandonaron y los que completaron sus estudios?
+¿Tienden los estudiantes que se graduaron a mostrar valores de 
+rendimiento mayores que los estudiantes que abandonaron la carrera?
 
 Proceso:
 1. Identificación de grupos (abandono / no abandono)
-2. Creación de variable de rendimiento (tasa de aprobación)
-3. Análisis exploratorio (visualizaciones)
-4. Pruebas de normalidad
-5. Prueba estadística comparativa
+2. Análisis exploratorio para ambos grupos (visualizaciones)
+3. Pruebas de normalidad
+4. Prueba estadística comparativa
 """
-
-# ============================================================================
-# IMPORTACIÓN DE LIBRERÍAS
-# ============================================================================
 import pandas as pd              # Manipulación y análisis de datos tabulares
 import numpy as np               # Operaciones numéricas y cálculos matemáticos
 import matplotlib.pyplot as plt  # Creación de gráficos y visualizaciones
 import seaborn as sns            # Visualizaciones estadísticas mejoradas
 from scipy import stats          # Funciones estadísticas generales
-# Importaciones específicas para pruebas estadísticas:
-from scipy.stats import shapiro, mannwhitneyu, ttest_ind, levene
+from scipy.stats import shapiro, mannwhitneyu, ttest_ind, levene # Importaciones específicas para pruebas estadísticas
 import warnings                  # Manejo de advertencias
 import os                        # Operaciones del sistema de archivos
 import json                      # Lectura/escritura de archivos JSON
 from datetime import datetime    # Manejo de fechas
 
-# Suprimir advertencias para una salida más limpia
-warnings.filterwarnings('ignore')
-
-# ============================================================================
-# CONFIGURACIÓN VISUAL Y DIRECTORIOS
-# ============================================================================
-# Estilo de gráficos: fondo blanco con cuadrícula suave
-plt.style.use('seaborn-v0_8-whitegrid')
-# Paleta de colores diversa para mejor distinción visual
-sns.set_palette("husl")
-
-# Directorios de salida para resultados y figuras
-OUTPUT_DIR = "outputs/performance_analysis"
-FIGURES_DIR = f"{OUTPUT_DIR}/figures"
+warnings.filterwarnings('ignore')          # Suprimir advertencias para una salida más limpia
+plt.style.use('seaborn-v0_8-whitegrid')    # Estilo de gráficos: fondo blanco con cuadrícula suave
+sns.set_palette("husl")                    # Paleta de colores diversa para mejor distinción visual
+OUTPUT_DIR = "outputs/performance_analysis"    # Directorio de salida para resultados
+FIGURES_DIR = f"{OUTPUT_DIR}/figures"          # Directorio para guardar figuras generadas
 
 def create_output_directories():
     """Crear directorios de salida si no existen."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(FIGURES_DIR, exist_ok=True)
     print(f"✓ Directorios de salida creados: {OUTPUT_DIR}")
+
+def remove_outliers_from_groups(grupo_abandono, grupo_no_abandono, variable='Tasa_aprobacion_1sem', k=3):
+    """
+    Remueve outliers usando IQR clásico.
+
+    - Usa factor k por defecto 3 con sensibilidad baja.
+    - Añade columna 'Outlier_Tasa_1sem' (1 = outlier, 0 = no outlier) y
+      devuelve los dataframes filtrados (sin outliers) y el conteo removido.
+
+    Retorna: (grupo_abandono_filtrado, grupo_no_abandono_filtrado, removed_counts)
+    """
+    # Verificar existencia de la variable
+    if variable not in grupo_abandono.columns or variable not in grupo_no_abandono.columns:
+        return grupo_abandono, grupo_no_abandono, {'abandono': 0, 'graduate': 0}
+
+    def mark_and_filter(df):
+        s = df[variable].dropna()
+        if s.empty:
+            df['Outlier_Tasa_1sem'] = 0
+            return df
+
+        q1 = s.quantile(0.25)
+        q3 = s.quantile(0.75)
+        iqr = q3 - q1
+
+        # Si IQR == 0 (datos constantes) -> no marcar outliers
+        if iqr == 0 or np.isclose(iqr, 0):
+            df['Outlier_Tasa_1sem'] = 0
+            return df
+
+        lower_fence = q1 - k * iqr
+        upper_fence = q3 + k * iqr
+
+        df['Outlier_Tasa_1sem'] = df[variable].apply(
+            lambda x: 1 if (pd.notna(x) and (x < lower_fence or x > upper_fence)) else 0
+        )
+        return df
+
+    ga_marked = mark_and_filter(grupo_abandono.copy())
+    gg_marked = mark_and_filter(grupo_no_abandono.copy())
+
+    ga = ga_marked[ga_marked['Outlier_Tasa_1sem'] == 0].copy()
+    gg = gg_marked[gg_marked['Outlier_Tasa_1sem'] == 0].copy()
+
+    removed = {
+        'abandono': int(ga_marked['Outlier_Tasa_1sem'].sum()),
+        'graduate': int(gg_marked['Outlier_Tasa_1sem'].sum())
+    }
+
+    return ga, gg, removed
 
 def load_data(filepath):
     """Cargar el dataset preparado."""
@@ -95,92 +128,16 @@ def identify_groups(df):
     print(f"\n📊 Resumen de grupos para análisis:")
     print(f"  • Grupo ABANDONO (Dropout):      {len(grupo_abandono):,} estudiantes ({len(grupo_abandono)/len(df)*100:.1f}%)")
     print(f"  • Grupo NO ABANDONO (Graduate):  {len(grupo_no_abandono):,} estudiantes ({len(grupo_no_abandono)/len(df)*100:.1f}%)")
+    # Mostrar total considerado (solo Dropout + Graduate) y % dentro de ese total
+    total_two_groups = len(grupo_abandono) + len(grupo_no_abandono)
+    print(f"\n🔢 Total considerado (Dropout + Graduate): {total_two_groups:,}")
+    if total_two_groups > 0:
+        pct_ab = len(grupo_abandono) / total_two_groups * 100
+        pct_gr = len(grupo_no_abandono) / total_two_groups * 100
+        print(f"  • % sobre Total (Dropout):   {pct_ab:.1f}%")
+        print(f"  • % sobre Total (Graduate):  {pct_gr:.1f}%")
     
     return grupo_abandono, grupo_no_abandono
-
-def create_performance_variable(df, grupo_abandono, grupo_no_abandono):
-    """
-    Crear la variable de rendimiento: Tasa de Aprobación del 1er semestre.
-    
-    Esta es la variable clave para el análisis comparativo. Mide el éxito
-    académico temprano del estudiante como proxy de su desempeño general.
-    
-    Fórmula:
-    Tasa_aprobacion = Unidades Aprobadas / Unidades Matriculadas
-    
-    Interpretación:
-    - 0.0 = No aprobó ninguna materia
-    - 0.5 = Aprobó la mitad de las materias
-    - 1.0 = Aprobó todas las materias matriculadas
-    
-    Manejo de casos especiales:
-    - Si enrolled = 0 (sin matrícula), la tasa se asigna como 0
-    """
-    print(f"\n{'='*60}")
-    print("3️⃣  CREACIÓN DE VARIABLE DE RENDIMIENTO")
-    print('='*60)
-    
-    # Columnas de interés
-    col_approved = 'Curricular units 1st sem (approved)'
-    col_enrolled = 'Curricular units 1st sem (enrolled)'
-    col_evaluations = 'Curricular units 1st sem (evaluations)'
-    col_grade = 'Curricular units 1st sem (grade)'
-    
-    # Verificar que las columnas existen
-    print(f"\n📋 Columnas utilizadas:")
-    print(f"  - Aprobadas: '{col_approved}'")
-    print(f"  - Matriculadas: '{col_enrolled}'")
-    
-    # Crear tasa de aprobación para todo el dataframe
-    # np.where aplica la división solo cuando hay materias matriculadas
-    df['Tasa_aprobacion_1sem'] = np.where(
-        df[col_enrolled] > 0,
-        df[col_approved] / df[col_enrolled],
-        0  # Si no hay unidades matriculadas, tasa = 0 (evita división por cero)
-    )
-    
-    # Crear tasa para 2do semestre también (para análisis complementarios)
-    col_approved_2 = 'Curricular units 2nd sem (approved)'
-    col_enrolled_2 = 'Curricular units 2nd sem (enrolled)'
-    
-    df['Tasa_aprobacion_2sem'] = np.where(
-        df[col_enrolled_2] > 0,
-        df[col_approved_2] / df[col_enrolled_2],
-        0
-    )
-    
-    # Tasa promedio de ambos semestres: visión global del rendimiento
-    # Promedio simple de ambas tasas
-    df['Tasa_aprobacion_promedio'] = (df['Tasa_aprobacion_1sem'] + df['Tasa_aprobacion_2sem']) / 2
-    
-    # Actualizar los grupos con las nuevas columnas calculadas
-    grupo_abandono = df[df['Target'] == 'Dropout'].copy()
-    grupo_no_abandono = df[df['Target'] == 'Graduate'].copy()
-    
-    print(f"\n📊 Estadísticas de Tasa de Aprobación (1er semestre):")
-    print("\n  GRUPO ABANDONO (Dropout):")
-    print(f"    - Media:     {grupo_abandono['Tasa_aprobacion_1sem'].mean():.4f}")
-    print(f"    - Mediana:   {grupo_abandono['Tasa_aprobacion_1sem'].median():.4f}")
-    print(f"    - Desv.Std:  {grupo_abandono['Tasa_aprobacion_1sem'].std():.4f}")
-    print(f"    - Mín:       {grupo_abandono['Tasa_aprobacion_1sem'].min():.4f}")
-    print(f"    - Máx:       {grupo_abandono['Tasa_aprobacion_1sem'].max():.4f}")
-    
-    print("\n  GRUPO NO ABANDONO (Graduate):")
-    print(f"    - Media:     {grupo_no_abandono['Tasa_aprobacion_1sem'].mean():.4f}")
-    print(f"    - Mediana:   {grupo_no_abandono['Tasa_aprobacion_1sem'].median():.4f}")
-    print(f"    - Desv.Std:  {grupo_no_abandono['Tasa_aprobacion_1sem'].std():.4f}")
-    print(f"    - Mín:       {grupo_no_abandono['Tasa_aprobacion_1sem'].min():.4f}")
-    print(f"    - Máx:       {grupo_no_abandono['Tasa_aprobacion_1sem'].max():.4f}")
-    
-    # Casos con tasa = 0 (sin unidades matriculadas o sin aprobar ninguna)
-    casos_cero_abandono = (grupo_abandono['Tasa_aprobacion_1sem'] == 0).sum()
-    casos_cero_no_abandono = (grupo_no_abandono['Tasa_aprobacion_1sem'] == 0).sum()
-    
-    print(f"\n⚠️  Casos con Tasa = 0:")
-    print(f"    - Dropout:  {casos_cero_abandono} ({casos_cero_abandono/len(grupo_abandono)*100:.1f}%)")
-    print(f"    - Graduate: {casos_cero_no_abandono} ({casos_cero_no_abandono/len(grupo_no_abandono)*100:.1f}%)")
-    
-    return df, grupo_abandono, grupo_no_abandono
 
 def exploratory_analysis(grupo_abandono, grupo_no_abandono):
     """
@@ -230,6 +187,12 @@ def exploratory_analysis(grupo_abandono, grupo_no_abandono):
     plt.tight_layout()
     plt.savefig(f'{FIGURES_DIR}/boxplot_histograma.png', dpi=150, bbox_inches='tight')
     print(f"✓ Figura guardada: {FIGURES_DIR}/boxplot_histograma.png")
+    # Mostrar la figura en pantalla al ejecutar el script
+    try:
+        plt.show()
+    except Exception:
+        # En entornos no interactivos, plt.show() puede fallar; seguimos guardando la figura
+        pass
     plt.close()
     
     return
@@ -258,32 +221,42 @@ def normality_tests(grupo_abandono, grupo_no_abandono):
     
     variable = 'Tasa_aprobacion_1sem'
     alpha = 0.05  # Nivel de significancia estándar
-    
+
     results = {}
-    
+
     # Limitar muestra para Shapiro-Wilk (máximo 5000)
     n_max = 5000
-    
+
     print(f"\n📊 Hipótesis:")
     print(f"   H0: Los datos siguen una distribución normal")
     print(f"   H1: Los datos NO siguen una distribución normal")
     print(f"   α = {alpha}")
-    
-    # Test para grupo abandono
-    sample_abandono = grupo_abandono[variable]
+
+    # Quitar outliers marcados antes de las pruebas (Shapiro es sensible a outliers)
+    # Usamos la versión sencilla IQR (k=1.5)
+    grupo_filtrado_a, grupo_filtrado_g, removed = remove_outliers_from_groups(
+        grupo_abandono, grupo_no_abandono
+    )
+    if removed['abandono'] or removed['graduate']:
+        print(f"\n⚠️ Outliers removidos antes de Shapiro-Wilk:")
+        print(f"    - Dropout:  {removed['abandono']}")
+        print(f"    - Graduate: {removed['graduate']}")
+
+    # Test para grupo abandono (sin outliers)
+    sample_abandono = grupo_filtrado_a[variable]
     if len(sample_abandono) > n_max:
         sample_abandono = sample_abandono.sample(n_max, random_state=42)
         print(f"\n⚠️  Muestra Dropout reducida a {n_max} para Shapiro-Wilk")
-    
+
     stat_abandono, p_abandono = shapiro(sample_abandono)
     normal_abandono = p_abandono > alpha
-    
-    # Test para grupo no abandono
-    sample_no_abandono = grupo_no_abandono[variable]
+
+    # Test para grupo no abandono (sin outliers)
+    sample_no_abandono = grupo_filtrado_g[variable]
     if len(sample_no_abandono) > n_max:
         sample_no_abandono = sample_no_abandono.sample(n_max, random_state=42)
         print(f"⚠️  Muestra Graduate reducida a {n_max} para Shapiro-Wilk")
-    
+
     stat_no_abandono, p_no_abandono = shapiro(sample_no_abandono)
     normal_no_abandono = p_no_abandono > alpha
     
@@ -292,11 +265,15 @@ def normality_tests(grupo_abandono, grupo_no_abandono):
     print(f"   - Estadístico W: {stat_abandono:.6f}")
     print(f"   - p-value:       {p_abandono:.2e}")
     print(f"   - Conclusión:    {'✓ Distribución NORMAL' if normal_abandono else '✗ Distribución NO normal'}")
+    # Comparación explícita: mostrar valores numéricos de p-value y alpha
+    print(f"   - Comparación: {p_abandono:.2e} < {alpha} -> {'p-value < α: Rechazamos H0 (NO normal)' if p_abandono < alpha else 'p-value >= α: No rechazamos H0 (posible normalidad)'}")
     
     print(f"\n   GRUPO GRADUATE (No Abandono):")
     print(f"   - Estadístico W: {stat_no_abandono:.6f}")
     print(f"   - p-value:       {p_no_abandono:.2e}")
     print(f"   - Conclusión:    {'✓ Distribución NORMAL' if normal_no_abandono else '✗ Distribución NO normal'}")
+    # Comparación explícita: mostrar valores numéricos de p-value y alpha
+    print(f"   - Comparación: {p_no_abandono:.2e} < {alpha} -> {'p-value < α: Rechazamos H0 (NO normal)' if p_no_abandono < alpha else 'p-value >= α: No rechazamos H0 (posible normalidad)'}")
     
     # Decisión sobre prueba a usar
     both_normal = normal_abandono and normal_no_abandono
@@ -324,7 +301,42 @@ def normality_tests(grupo_abandono, grupo_no_abandono):
         },
         'both_normal': True if both_normal else False
     }
-    
+    # --- Visualización: Q-Q plots (Shapiro diagnostic) usando datos sin outliers ---
+    try:
+        # Preparar datos sin NaNs a partir de las muestras usadas en Shapiro
+        sa = sample_abandono.dropna()
+        sg = sample_no_abandono.dropna()
+
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Dropout Q-Q
+        (osm_a, osr_a), (slope_a, intercept_a, r_a) = stats.probplot(sa, dist='norm')
+        axes[0].scatter(osm_a, osr_a, facecolors='none', edgecolors='#e74c3c')
+        axes[0].plot(osm_a, slope_a * osm_a + intercept_a, color='#2c3e50', linestyle='--')
+        axes[0].set_title('Normal Q-Q Plot\nDropout (Abandono)')
+        axes[0].set_xlabel('Theoretical Quantiles')
+        axes[0].set_ylabel('Ordered Values')
+
+        # Graduate Q-Q
+        (osm_g, osr_g), (slope_g, intercept_g, r_g) = stats.probplot(sg, dist='norm')
+        axes[1].scatter(osm_g, osr_g, facecolors='none', edgecolors='#27ae60')
+        axes[1].plot(osm_g, slope_g * osm_g + intercept_g, color='#2c3e50', linestyle='--')
+        axes[1].set_title('Normal Q-Q Plot\nGraduate (No Abandono)')
+        axes[1].set_xlabel('Theoretical Quantiles')
+        axes[1].set_ylabel('Ordered Values')
+
+        plt.tight_layout()
+        qq_path = f'{FIGURES_DIR}/shapiro_qq_plots.png'
+        plt.savefig(qq_path, dpi=150, bbox_inches='tight')
+        print(f"✓ Q-Q plots guardados: {qq_path}")
+        try:
+            plt.show()
+        except Exception:
+            pass
+        plt.close()
+    except Exception as e:
+        print(f"⚠️  No se pudo generar Q-Q plots: {e}")
+
     return results, both_normal
 
 def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
@@ -332,11 +344,11 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     Realizar la prueba estadística para comparar los grupos.
     
     Esta es la prueba central del análisis que responde a la pregunta:
-    "¿Hay diferencia significativa en el rendimiento entre los grupos?"
+    "¿Tiende un grupo a mostrar valores de rendimiento mayores que el otro?"
     
     Hipótesis:
-    - H0 (nula): No hay diferencia significativa en el rendimiento entre grupos
-    - H1 (alternativa): Existe diferencia significativa en el rendimiento
+    - H0 (nula): No existe evidencia de que un grupo muestre valores de rendimiento mayores que el otro
+    - H1 (alternativa): Un grupo muestra valores de rendimiento mayor que el otro
     
     Selección de prueba:
     - Si ambos son normales: t-test de Student (paramétrico)
@@ -344,13 +356,9 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
       * Incluye verificación de homogeneidad de varianzas (Levene)
     - Si no son normales: Mann-Whitney U (no paramétrico)
       * Más robusto ante violaciones de normalidad
-      * Compara rangos en lugar de medias
-    
-    Tamaño del efecto (Cohen's d):
-    - Mide la magnitud práctica de la diferencia
-    - d < 0.2: efecto pequeño
-    - d ~ 0.5: efecto mediano
-    - d > 0.8: efecto grande
+      * Compara tendencia estocástica
+      * Independencia entre observaciones
+      * Sensibilidad a outliers baja
     """
     print(f"\n{'='*60}")
     print("6️⃣  PRUEBA ESTADÍSTICA COMPARATIVA")
@@ -365,8 +373,8 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     data_no_abandono = grupo_no_abandono[variable]
     
     print(f"\n📊 Hipótesis:")
-    print(f"   H0: No hay diferencia significativa en el rendimiento entre grupos")
-    print(f"   H1: Existe diferencia significativa en el rendimiento entre grupos")
+    print(f"   H0 (nula): No existe evidencia de que un grupo muestre valores de rendimiento mayores que el otro")
+    print(f"   H1 (alternativa): Un grupo muestra valores de rendimiento mayor que el otro")
     print(f"   α = {alpha}")
     
     if both_normal:
@@ -395,30 +403,16 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     else:
         # Prueba Mann-Whitney U
         print(f"\n🔬 Prueba seleccionada: Mann-Whitney U (no paramétrica)")
+        # Explicación breve sobre la elección de Mann-Whitney y sus supuestos
+        print(f"\n¿Por qué elegir Mann-Whitney U?")
+        print(f" - Se elige cuando al menos uno de los grupos NO cumple la suposición de normalidad.")
+        print(f" - Mann-Whitney es una prueba no paramétrica que compara el orden (ranks) de las observaciones entre grupos, es más robusta ante distribuciones no normales y outliers.")
+        print(f"\nSupuestos principales de Mann-Whitney:")
+        print(f"  1) Observaciones independientes entre y dentro de los grupos.")
+        print(f"  2) La variable de respuesta es al menos de escala ordinal (o continua).")
+        print(f"  3) Las distribuciones de ambas poblaciones deben tener forma similar si se quiere interpretar la prueba como comparación de medianas. Si las formas difieren, que es el caso, la prueba compara más bien la tendencia estocástica, que es el objetivo.")
         stat_test, p_value = mannwhitneyu(data_abandono, data_no_abandono, alternative='two-sided')
         test_name = "Mann-Whitney U"
-    
-    # =========================================================================
-    # CÁLCULO DEL TAMAÑO DEL EFECTO (Cohen's d)
-    # =========================================================================
-    # Cohen's d cuantifica la diferencia en términos de desviaciones estándar.
-    # Fórmula: d = (media1 - media2) / desviación_estándar_agrupada
-    # Esto permite evaluar la importancia práctica, no solo estadística.
-    cohens_d = (data_no_abandono.mean() - data_abandono.mean()) / np.sqrt(
-        ((len(data_abandono) - 1) * data_abandono.std()**2 + 
-         (len(data_no_abandono) - 1) * data_no_abandono.std()**2) / 
-        (len(data_abandono) + len(data_no_abandono) - 2)
-    )
-    
-    # Interpretación del tamaño del efecto según convenciones de Cohen
-    if abs(cohens_d) < 0.2:
-        effect_interpretation = "pequeño"
-    elif abs(cohens_d) < 0.5:
-        effect_interpretation = "pequeño a mediano"
-    elif abs(cohens_d) < 0.8:
-        effect_interpretation = "mediano"
-    else:
-        effect_interpretation = "grande"  # Diferencia muy notable
     
     # Determinar si el resultado es estadísticamente significativo
     significant = p_value < alpha
@@ -428,7 +422,6 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     print(f"{'─'*60}")
     print(f"\n   Estadístico:     {stat_test:.4f}")
     print(f"   p-value:         {p_value:.2e}")
-    print(f"   Cohen's d:       {cohens_d:.4f} ({effect_interpretation})")
     print(f"\n   Media Dropout:   {data_abandono.mean():.4f}")
     print(f"   Media Graduate:  {data_no_abandono.mean():.4f}")
     print(f"   Diferencia:      {data_no_abandono.mean() - data_abandono.mean():.4f}")
@@ -441,13 +434,14 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
         print(f"\n   ✓ RESULTADO SIGNIFICATIVO (p-value < {alpha})")
         print(f"\n   Se RECHAZA la hipótesis nula (H0).")
         print(f"\n   INTERPRETACIÓN:")
-        print(f"   Existe evidencia estadística suficiente para afirmar que HAY")
-        print(f"   una diferencia significativa en la tasa de aprobación entre")
-        print(f"   estudiantes que abandonaron y los que se graduaron.")
+        print(f"   Existe evidencia estadística suficiente para afirmar que")
+        print(f"   los estudiantes que se graduaron tienden a mostrar valores")
+        print(f"   de rendimiento mayores que los estudiantes que abandonaron.")
         print(f"\n   Los estudiantes graduados tienen una tasa de aprobación")
         print(f"   significativamente MAYOR ({data_no_abandono.mean():.2%}) que los")
         print(f"   estudiantes que abandonaron ({data_abandono.mean():.2%}).")
-        print(f"\n   El tamaño del efecto es {effect_interpretation} (d = {cohens_d:.3f}).")
+      
+        pass
     else:
         print(f"\n   ✗ RESULTADO NO SIGNIFICATIVO (p-value >= {alpha})")
         print(f"\n   NO se rechaza la hipótesis nula (H0).")
@@ -459,8 +453,6 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
         'statistic': float(stat_test),
         'p_value': float(p_value),
         'significant': True if significant else False,
-        'cohens_d': float(cohens_d),
-        'effect_size': effect_interpretation,
         'alpha': alpha,
         'mean_dropout': float(data_abandono.mean()),
         'mean_graduate': float(data_no_abandono.mean()),
@@ -483,7 +475,7 @@ def generate_report(df, grupo_abandono, grupo_no_abandono, normality_results, co
         'metadata': {
             'fecha_analisis': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'dataset': 'outputs/prepared_data/dataset_prepared.csv',
-            'variable_analizada': 'Tasa de Aprobación (1er Semestre)',
+            'variable_analizada': 'Tasa de Aprobación (1er Semestre) - zscore',
             'n_total': len(df)
         },
         'grupos': {
@@ -538,18 +530,10 @@ def main(input_path: str = None, output_dir: str = None):
     Flujo de ejecución:
     1. Cargar datos del dataset preparado
     2. Identificar y separar grupos (Dropout vs Graduate)
-    3. Calcular variable de rendimiento (tasa de aprobación)
-    4. Análisis exploratorio con visualizaciones
-    5. Pruebas de normalidad (determinar tipo de prueba)
-    6. Prueba estadística comparativa
-    7. Generar reporte con conclusiones
-    
-    Args:
-        input_path: Ruta al archivo CSV de datos. Si es None, usa el default.
-        output_dir: Directorio de salida. Si es None, usa el default.
-    
-    Returns:
-        tuple: (DataFrame procesado, diccionario con reporte de resultados)
+    3. Análisis exploratorio para ambos grupos (visualizaciones)
+    4. Pruebas de normalidad (determinar tipo de prueba)
+    5. Prueba estadística comparativa
+    6. Generar reporte con conclusiones
     """
     global OUTPUT_DIR, FIGURES_DIR
     
@@ -576,21 +560,16 @@ def main(input_path: str = None, output_dir: str = None):
     # 2. Identificar grupos
     grupo_abandono, grupo_no_abandono = identify_groups(df)
     
-    # 3. Crear variable de rendimiento
-    df, grupo_abandono, grupo_no_abandono = create_performance_variable(
-        df, grupo_abandono, grupo_no_abandono
-    )
-    
-    # 4. Análisis exploratorio
+    # 3. Análisis exploratorio para ambos grupos (visualizaciones)
     exploratory_analysis(grupo_abandono, grupo_no_abandono)
     
-    # 5. Pruebas de normalidad
+    # 4. Pruebas de normalidad
     normality_results, both_normal = normality_tests(grupo_abandono, grupo_no_abandono)
     
-    # 6. Prueba estadística comparativa
+    # 5. Prueba estadística comparativa
     comparison_results = statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal)
     
-    # 7. Generar reporte
+    # 6. Generar reporte
     report = generate_report(df, grupo_abandono, grupo_no_abandono, normality_results, comparison_results)
     
     # Resumen final

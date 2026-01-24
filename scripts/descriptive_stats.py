@@ -9,53 +9,22 @@ Descripción general:
     frecuentes.
 - Guarda un archivo de texto por variable y un `descriptive_stats_summary.csv`
     con un resumen para todas las variables en la carpeta de salida.
-
-Notas de uso:
-- Ejecutar como script desde la carpeta del proyecto o importarlo como módulo
-    llamando a `compute_descriptive_stats(df, out_dir)`.
 """
-import argparse
-from pathlib import Path
-import re
-import pandas as pd
-import numpy as np
-
-# ----------------------------------------------------------------------------------
-# Comentarios generales sobre imports:
-# - `argparse` se usa para exponer una interfaz sencilla cuando se ejecuta
-#   el script desde la línea de comandos.
-# - `Path` (pathlib) facilita la manipulación de rutas multiplataforma.
-# - `re` se usa para sanitizar nombres de ficheros.
-# - `pandas` y `numpy` realizan la carga/transformación y los cálculos numéricos.
-# ----------------------------------------------------------------------------------
+import argparse        # Manejo de argumentos desde la línea de comandos
+from pathlib import Path  # Manipulación de rutas y archivos de forma orientada a objetos
+import re              # Expresiones regulares para búsqueda y reemplazo de patrones
+import pandas as pd    # Análisis y manipulación de datos en estructuras tipo DataFrame
+import numpy as np     # Operaciones numéricas y manejo eficiente de arreglos
 
 def safe_filename(name: str) -> str:
-        """Genera un nombre de fichero seguro reemplazando caracteres inválidos.
-
-        Parámetros:
-        - name: valor de entrada (normalmente el nombre de la variable) que puede
-            contener caracteres no permitidos en sistemas de archivos (por ejemplo
-            `:` o `\`).
-
-        Retorna:
-        - Una cadena con los caracteres inválidos sustituidos por guiones bajos.
-
-        Observación: convierte el argumento a `str` antes de aplicar la expresión
-        regular para evitar errores si se pasan tipos no string (p. ej. números).
-        """
-        return re.sub(r'[<>:"/\\|?*]', '_', str(name))
+    """
+    Genera un nombre de archivo seguro reemplazando caracteres inválidos por guiones bajos.
+    """
+    return re.sub(r'[<>:"/\\|?*]', '_', str(name))
 
 def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
-    """Itera por columnas y calcula estadísticas, guardando resultados.
-
-    Comportamiento clave:
-    - Crea el directorio de salida si no existe.
-    - Para cada columna, elimina valores faltantes con `dropna()` antes de
-      calcular medidas.
-    - Si la serie resultante está vacía, se registran `NaN`/valores por defecto
-      en el resumen para mantener consistencia de columnas en el CSV final.
-    - Distingue entre columnas numéricas y categóricas usando
-      `pd.api.types.is_numeric_dtype`.
+    """
+    Itera por cada variable y calcula estadísticos descriptivos, guardando resultados.
     """
     # Asegurar que la carpeta de salida exista
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -92,7 +61,7 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
         else:
             # Si es numérico, calculamos todas las medidas relevantes
             if pd.api.types.is_numeric_dtype(s):
-                # Convertimos a float para evitar objetos numpy en el CSV
+                # Convertimos a float y redondeamos a 2 decimales para salidas
                 mean = float(s.mean())
                 median = float(s.median())
                 modes = s.mode().tolist()  # puede devolver múltiples modas
@@ -106,27 +75,28 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
                 q25 = float(s.quantile(0.25))
                 iqr = q75 - q25
 
+                # Guardamos en `result` los valores redondeados a 2 cifras
                 result.update({
-                    'media': mean,
-                    'mediana': median,
+                    'media': round(mean, 2),
+                    'mediana': round(median, 2),
                     'moda': ';'.join(map(str, modes)),
-                    'minimo': minimo,
-                    'maximo': maximo,
-                    'rango': rango,
-                    'varianza': var,
-                    'desviacion_estandar': std,
-                    'rango_intercuartilico': iqr,
+                    'minimo': round(minimo, 2),
+                    'maximo': round(maximo, 2),
+                    'rango': round(rango, 2),
+                    'varianza': round(var, 2),
+                    'desviacion_estandar': round(std, 2),
+                    'rango_intercuartilico': round(iqr, 2),
                 })
 
-                # Salida humana por consola (útil para inspección rápida)
+                # Salida humana por consola (formatos con 2 decimales)
                 print(f"Variable: {col}")
-                print(f"media aritmética: {mean}")
-                print(f"mediana: {median}")
+                print(f"media aritmética: {result['media']:.2f}")
+                print(f"mediana: {result['mediana']:.2f}")
                 print(f"moda: {', '.join(map(str, modes))}")
-                print(f"medidas de dispersión: minimo: {minimo}, maximo: {maximo}, rango: {rango}")
-                print(f"varianza: {var}")
-                print(f"desviación estándar: {std}")
-                print(f"rango intercuartílico: {iqr}\n")
+                print(f"medidas de dispersión: minimo: {result['minimo']:.2f}, maximo: {result['maximo']:.2f}, rango: {result['rango']:.2f}")
+                print(f"varianza: {result['varianza']:.2f}")
+                print(f"desviación estándar: {result['desviacion_estandar']:.2f}")
+                print(f"rango intercuartílico: {result['rango_intercuartilico']:.2f}\n")
 
             else:
                 # Para variables no numéricas (categóricas) calculamos la(s) moda(s)
@@ -169,13 +139,13 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
             # todas las medidas, mientras que para otras escribimos N/A cuando
             # correspondan.
             if pd.api.types.is_numeric_dtype(s) and not s.empty:
-                fh.write(f"media aritmética: {result['media']}\n")
-                fh.write(f"mediana: {result['mediana']}\n")
+                fh.write(f"media aritmética: {result['media']:.2f}\n")
+                fh.write(f"mediana: {result['mediana']:.2f}\n")
                 fh.write(f"moda: {result['moda']}\n")
-                fh.write(f"medidas de dispersión: minimo: {result['minimo']}, maximo: {result['maximo']}, rango: {result['rango']}\n")
-                fh.write(f"varianza: {result['varianza']}\n")
-                fh.write(f"desviación estándar: {result['desviacion_estandar']}\n")
-                fh.write(f"rango intercuartílico: {result['rango_intercuartilico']}\n")
+                fh.write(f"medidas de dispersión: minimo: {result['minimo']:.2f}, maximo: {result['maximo']:.2f}, rango: {result['rango']:.2f}\n")
+                fh.write(f"varianza: {result['varianza']:.2f}\n")
+                fh.write(f"desviación estándar: {result['desviacion_estandar']:.2f}\n")
+                fh.write(f"rango intercuartílico: {result['rango_intercuartilico']:.2f}\n")
             else:
                 fh.write(f"media aritmética: N/A\n")
                 fh.write(f"mediana: N/A\n")
@@ -188,8 +158,8 @@ def compute_descriptive_stats(df: pd.DataFrame, out_dir: Path):
     summary_df.to_csv(summary_csv, index=False, encoding='utf-8')
 
 def main(input_path: str, out: str):
-    """Punto de entrada para ejecutar estadísticas descriptivas desde CSV.
-
+    """
+    Punto de entrada para ejecutar estadísticas descriptivas desde CSV.
     Lee un archivo CSV desde `input_path`, crea el directorio de salida
     apropiado y llama a `compute_descriptive_stats` para generar los informes.
 
