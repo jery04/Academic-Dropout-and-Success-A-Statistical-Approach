@@ -629,7 +629,7 @@ if __name__ == '__main__':
     Parsea los argumentos de entrada y salida, y llama a la función principal.
     """
     p = argparse.ArgumentParser()
-    p.add_argument('--input', required=False, help='Path to CSV input', default=str(Path(__file__).parent.parent / 'outputs' / 'prepared_data' / 'dataset_prepared.csv'))
+    p.add_argument('--input', required=False, help='Path to CSV input', default=str(Path(__file__).parent.parent / 'outputs' / 'dataset.csv'))
     p.add_argument('--out', required=False, help='Output directory', default=str(Path(__file__).parent.parent / 'outputs' / 'data_visualization'))
     p.add_argument('--display', action='store_true', help='Show plots in GUI windows in addition to saving them')
     args = p.parse_args()
