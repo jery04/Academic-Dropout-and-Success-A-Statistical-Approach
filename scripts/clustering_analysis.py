@@ -80,14 +80,14 @@ def load_and_prepare_data(filepath):
         # Intentar buscar variaciones comunes
         possible_targets = [col for col in df.columns if 'target' in col.lower()]
         if possible_targets:
-             print(f"   ¿Quizás quisiste decir: {possible_targets}?")
+             print(f"   Posibles coincidencias: {possible_targets}")
         return None
 
     # 2. Filtrado inicial
-    # Nota: Para clustering a veces es útil ver a todos, pero para 'Permanencia o Abandono' solemos usar Target definido.
+    # Se conservan registros con estado final definido para análisis de permanencia
     df = df[df['Target'].isin(['Dropout', 'Graduate'])].copy()
 
-    # 3. Ingeniería de Características Básica (Necesaria para el Clustering)
+    # 3. Ingeniería de Características Básica
     # Crear tasas de aprobación si no existen
     if 'Curricular units 1st sem (enrolled)' in df.columns:
         df['Tasa_Aprobacion_Sem1'] = np.where(df['Curricular units 1st sem (enrolled)'] > 0,
@@ -156,8 +156,8 @@ def perform_clustering_analysis(df):
     X_scaled = scaler.fit_transform(X)
     
     # 3. K-Means
-    # Usamos k=4 hipótesis inicial: Excelente, Promedio, Riesgo (Bajas notas), Abandono (Sin evaluación)
-    k = 4
+    # Configuración del algoritmo de clustering
+    k = 2
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     clusters = kmeans.fit_predict(X_scaled)
     
@@ -181,12 +181,7 @@ def perform_clustering_analysis(df):
     # Imprimir tabla limpia
     print(profile.round(2).to_string())
 
-    print("\n⚠️ NOTA: Analiza la tabla anterior para asignar nombres a los Clusters.")
-    print("   - Cluster con Tasa=1.0 y alta nota -> Probablemente 'Alto Rendimiento'")
-    print("   - Cluster con Tasa=0.0 y Tasa_Sin_Eval alta -> Probablemente 'Deserción / Ausentismo'")
-    
-    # Crear etiquetas genéricas basadas en el orden para facilitar gráficos siguientes
-    # (Ej: 'Grupo A', 'Grupo B'...) en lugar de intentar adivinar el nombre semántico
+    # Asignación de etiquetas basada en ranking de desempeño
     rank_mapping = {original_idx: f"Grupo {i+1}" for i, original_idx in enumerate(profile.index)}
     df['Cluster_Label'] = df['Cluster'].map(rank_mapping)
     
@@ -261,8 +256,30 @@ def analyze_socioeconomic_links(df):
         contingency = pd.crosstab(df['Cluster_Label'], df[col])
         chi2, p, dof, expected = stats.chi2_contingency(contingency)
         
+        # Validar frecuencia esperada
+        pct_low_expected = (expected < 5).mean()
+        warning_msg = ""
+        if pct_low_expected > 0.20:
+            warning_msg = f" ⚠️ Advertencia: {pct_low_expected*100:.0f}% celdas < 5 (Posible Falso Positivo)"
+
         sig = "✅ Significativo" if p < 0.05 else "❌ No significativo"
-        print(f"{col:30} | p={p:.2e} | {sig}")
+        print(f"{col:30} | p={p:.2e} | {sig}{warning_msg}")
+        
+        # Desglose (Insight) si es significativo
+        if p < 0.05:
+            # Calcular % fila (Distribución dentro del cluster)
+            c_pct = contingency.div(contingency.sum(axis=1), axis=0) * 100
+            
+            # Si hay mapeo, usar nombres para interpretación
+            if col in local_mappings:
+                try:
+                    c_pct.columns = [local_mappings[col].get(c, c) for c in c_pct.columns]
+                except: pass
+            
+            print("   > Tendencia detectada (% por grupo):")
+            print(c_pct.round(1).to_string())
+            print("-" * 30)
+
         stats_results.append({'Variable': col, 'Test': 'Chi2', 'p-value': p})
         
         # Visualización
@@ -315,25 +332,39 @@ def analyze_socioeconomic_links(df):
             print(f"   > Error en Levene para '{col}': {e}")
             stat_levene, p_levene, levene_sig = 0, 1.0, "Error"
 
-        # 2. Test ANOVA
-        f_stat, p = stats.f_oneway(*groups)
+        # 2. Selección del Test (ANOVA vs Kruskal-Wallis)
+        if p_levene < 0.05:
+            # Varianzas heterogéneas -> Kruskal-Wallis
+            stat_test, p = stats.kruskal(*groups)
+            test_name = "Kruskal-Wallis"
+        else:
+            # Varianzas homogéneas -> ANOVA
+            stat_test, p = stats.f_oneway(*groups)
+            test_name = "ANOVA"
         
-        sig = "✅ Significativo" if p < 0.05 else "❌ No significativo"
-        
-        # print(f"{col:30} | ANOVA p={p:.2e} ({sig})") # Levene ya imprimió
+        sig_text = "✅ Significativo" if p < 0.05 else "❌ No significativo"
+        print(f"   > Test {test_name}: p={p:.2e} -> {sig_text}")
         
         stats_results.append({
             'Variable': col, 
-            'Test': 'ANOVA', 
+            'Test': test_name, 
             'p-value': p,
             'Levene_p': p_levene
         })
         
         ax = axes[i]
         sns.boxplot(x='Cluster_Label', y=col, data=df, ax=ax, palette='Set2')
-        # Título enriquecido con ambos resultados
-        ax.set_title(f'{col}\nANOVA p={p:.1e} | Levene p={p_levene:.1e}', fontsize=10)
+        # Título dinámico
+        ax.set_title(f'{col}\n{test_name} p={p:.1e} | Levene p={p_levene:.1e}', fontsize=10)
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+
+        # Desglose de medias si es significativo
+        if p < 0.05:
+            print(f"   > Diferencias por grupo (Promedios):")
+            means = df.groupby('Cluster_Label')[col].mean().sort_index()
+            for label, val in means.items():
+                print(f"     - {label}: {val:.2f}")
+            print("-" * 30)
 
     plt.tight_layout()
     plt.savefig(f"{FIGURES_DIR}/socioeconomic_numeric_analysis.png")
@@ -387,7 +418,7 @@ def analyze_dropout_probability(df):
         risk_str = f"{row['Riesgo_Relativo']:.1f}x"
         print(f"{idx:<15} | {row['Dropout']:<8} {row['Graduate']:<8} | {row['Tasa_Desercion']*100:5.1f}%      | {risk_str}")
         
-    # Visualización Impactante
+    # Visualización de resultados
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # Graficar Graduados vs Abandonos
