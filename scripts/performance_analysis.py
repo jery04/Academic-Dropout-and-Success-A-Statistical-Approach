@@ -175,11 +175,11 @@ def exploratory_analysis(grupo_abandono, grupo_no_abandono):
     # Subplot 2: Histogramas superpuestos
     ax2 = axes[1]
     ax2.hist(grupo_abandono[variable], bins=20, alpha=0.6, label='Dropout', 
-             color='#e74c3c', edgecolor='white', density=True)
+             color='#e74c3c', edgecolor='white', density=False)
     ax2.hist(grupo_no_abandono[variable], bins=20, alpha=0.6, label='Graduate', 
-             color='#27ae60', edgecolor='white', density=True)
+             color='#27ae60', edgecolor='white', density=False)
     ax2.set_xlabel('Tasa de Aprobación', fontsize=12)
-    ax2.set_ylabel('Densidad', fontsize=12)
+    ax2.set_ylabel('Cantidad de estudiantes', fontsize=12)
     ax2.set_title('Distribución de Tasa de Aprobación\nHistogramas Superpuestos', fontsize=14, fontweight='bold')
     ax2.legend(fontsize=11)
     ax2.grid(True, alpha=0.3)
@@ -348,7 +348,7 @@ def statistical_comparison(grupo_abandono, grupo_no_abandono, both_normal):
     
     Hipótesis:
     - H0 (nula): No existe evidencia de que un grupo muestre valores de rendimiento mayores que el otro
-    - H1 (alternativa): Un grupo muestra valores de rendimiento mayor que el otro
+    - H1 (alternativa): Un grupo muestra valores de rendimiento mayores que el otro
     
     Selección de prueba:
     - Si ambos son normales: t-test de Student (paramétrico)
