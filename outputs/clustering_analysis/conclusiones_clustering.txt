@@ -1,0 +1,30 @@
+RESUMEN DE HALLAZGOS - CLUSTERING & ÉXITO ACADÉMICO
+============================================================
+
+1. ESTRUCTURA DE DESEMPEÑO (Objetivo 1)
+----------------------------------------
+Se identificaron 4 grupos diferenciados de estudiantes.
+  - Grupo 1: 2747 estudiantes (75.7%)
+  - Grupo 2: 65 estudiantes (1.8%)
+  - Grupo 3: 37 estudiantes (1.0%)
+  - Grupo 4: 781 estudiantes (21.5%)
+
+2. IMPACTO EN PERMANENCIA (Objetivo 3)
+----------------------------------------
+  - El grupo de mayor riesgo es 'Grupo 4' con 90.3% de deserción.
+  - El perfil más seguro es 'Grupo 1' con solo 23.3% de deserción.
+  - Un estudiante en el grupo de riesgo tiene 3.9 veces más probabilidad de abandonar que uno del mejor grupo.
+
+3. VÍNCULOS SOCIOECONÓMICOS SIGNIFICATIVOS (Objetivo 2)
+----------------------------------------
+Se encontraron diferencias estadísticamente significativas (p<0.05) en:
+  * Scholarship holder
+  * Debtor
+  * Tuition fees up to date
+  * Gender
+  * Marital status
+  * Displaced
+  * Daytime/evening attendance
+  * Age at enrollment
+  * Inflation rate
+  * GDP
