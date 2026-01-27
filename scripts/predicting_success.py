@@ -603,10 +603,10 @@ def analyze_feature_importance(model, feature_names):
     print("\n" + "=" * 70)
     print("ANÁLISIS DE IMPORTANCIA DE VARIABLES")
     print("=" * 70)
-    
+
     # Obtener coeficientes del modelo entrenado
     coefficients = model.coef_[0]
-    
+
     # Crear DataFrame con métricas de importancia
     feature_importance = pd.DataFrame({
         'Feature': feature_names,
@@ -614,36 +614,34 @@ def analyze_feature_importance(model, feature_names):
         'Abs_Coefficient': np.abs(coefficients),  # Valor absoluto para ordenar
         'Odds_Ratio': np.exp(coefficients)        # Transformar a odds ratio
     }).sort_values('Abs_Coefficient', ascending=False)
-    
-    print("\n📊 Top 12 Variables más Importantes (por magnitud del coeficiente):")
-    print("\n   " + "-" * 75)
-    print(f"   {'#':<3} {'Variable':<45} {'Coef.':>10} {'Odds Ratio':>12}")
-    print("   " + "-" * 75)
-    
-    for i, (_, row) in enumerate(feature_importance.head(12).iterrows()):
-        effect = "↑ Graduate" if row['Coefficient'] > 0 else "↓ Dropout"
-        print(f"   {i+1:<3} {row['Feature']:<45} {row['Coefficient']:>10.4f} {row['Odds_Ratio']:>12.4f}")
-    
+
+    # Mostrar todas las variables en formato de columnas (tabla)
+    print("\n📊 Importancia de todas las variables (ordenadas por magnitud del coeficiente):\n")
+    print(f"{'Variable':<45} {'Coeficiente':>12} {'Odds Ratio':>12}")
+    print("-" * 71)
+    for _, row in feature_importance.iterrows():
+        print(f"{row['Feature']:<45} {row['Coefficient']:>12.4f} {row['Odds_Ratio']:>12.4f}")
+
     print("\n📖 Interpretación de Odds Ratio:")
     print("   - Odds Ratio > 1: Mayor probabilidad de GRADUARSE")
     print("   - Odds Ratio < 1: Mayor probabilidad de ABANDONAR")
     print("   - Odds Ratio = 1: Variable no tiene efecto")
-    
+
     # Key findings
     print("\n🔍 Hallazgos Clave:")
-    
+
     # Top positive factors (increase graduation probability)
     positive_factors = feature_importance[feature_importance['Coefficient'] > 0].head(5)
     print("\n   📈 Factores que AUMENTAN la probabilidad de graduarse:")
     for _, row in positive_factors.iterrows():
         print(f"      • {row['Feature']}: OR = {row['Odds_Ratio']:.3f}")
-    
+
     # Top negative factors (increase dropout probability)
     negative_factors = feature_importance[feature_importance['Coefficient'] < 0].head(5)
     print("\n   📉 Factores que AUMENTAN la probabilidad de abandono:")
     for _, row in negative_factors.iterrows():
         print(f"      • {row['Feature']}: OR = {row['Odds_Ratio']:.3f}")
-    
+
     return feature_importance
 
 def create_visualizations(model, X_test, y_test, y_pred, y_pred_proba, 
@@ -884,7 +882,11 @@ def main():
     feature_importance = analyze_feature_importance(model, feature_columns)
 
     # 12. Crear visualizaciones
-    output_dir = os.path.join('outputs', 'prediction_results')
+
+    # Asegurar que la ruta de salida sea siempre en la raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(project_root, 'outputs', 'prediction_results')
     os.makedirs(output_dir, exist_ok=True)
     create_visualizations(model, X_test_scaled, y_test, y_pred, y_pred_proba, feature_importance, metrics, output_dir)
 
