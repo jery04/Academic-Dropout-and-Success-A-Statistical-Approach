@@ -119,12 +119,19 @@ def load_and_prepare_data(filepath):
 
 def perform_clustering_analysis(df):
     """
-    OBJETIVO 1: "¿Cómo se estructuran los diversos niveles de desempeño?"
-    
-    Variables de Clustering (Comportamiento Académico):
-    1. Eficacia: Tasa de Aprobación (Sem 1 y 2)
-    2. Calidad: Notas Promedio (Sem 1 y 2)
-    3. Compromiso: Tasa Sin Evaluación (Sem 1 y 2)
+    ETAPA 1: Identificación de Perfiles de Desempeño (Clustering)
+    -----------------------------------------------------------
+    En lugar de clasificar a los estudiantes simplemente como "Aprobados" o "Reprobados",
+    se busca identificar patrones de comportamiento académico complejos mediante
+    técnicas de aprendizaje no supervisado.
+
+    Metodología:
+    1. Selección de Variables: Se construyen indicadores de Eficacia (Tasas Aprobación),
+       Calidad (Notas) y Compromiso (Asignaturas sin evaluación).
+    2. Estandarización: Se utiliza StandardScaler para normalizar las escalas (0-20 vs 0-1)
+       y evitar que variables de mayor magnitud dominen el cálculo de distancias.
+    3. Algoritmo K-Means: Agrupa estudiantes en 'k' clusters homogéneos minimizando
+       la varianza interna, permitiendo que emerjan perfiles naturales.
     """
     print(f"\n{'='*70}")
     print("🔍 OBJETIVO 1: CLUSTERING DE DESEMPEÑO ACADÉMICO")
@@ -146,6 +153,8 @@ def perform_clustering_analysis(df):
     print(f"Variables seleccionadas para el modelo: \n{cluster_features}")
 
     # 2. Preprocesamiento específico para Clustering
+    # Estandarización: Crucial para K-Means ya que utiliza distancias euclidianas.
+    # Sin esto, las Notas (0-20) pesarían 20 veces más que las Tasas (0-1).
     X = df[cluster_features].copy()
     
     # Rellenar NaNs con 0 (Si no tiene nota, es 0 para el modelo de rendimiento)
@@ -157,6 +166,7 @@ def perform_clustering_analysis(df):
     
     # 3. K-Means
     # Configuración del algoritmo de clustering
+    # Usamos k=2 hipótesis inicial: Grupo Rendimiento Alto vs Bajo.
     k = 2
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     clusters = kmeans.fit_predict(X_scaled)
@@ -189,30 +199,52 @@ def perform_clustering_analysis(df):
     for original, label in rank_mapping.items():
         print(f"  Cluster Original {original} -> {label}")
 
-    # Guardar gráfico de perfiles (Radar o Barras)
+    # Guardar gráfico de perfiles (Heatmap de Z-Scores)
     plt.figure(figsize=(12, 6))
-    # Normalizar perfil para visualización (0-1) para comparar variables dispares
-    profile_norm = (profile[cluster_features] - profile[cluster_features].min()) / (profile[cluster_features].max() - profile[cluster_features].min())
-    sns.heatmap(profile_norm, annot=True, cmap='RdYlGn', fmt='.2f')
-    plt.title('Mapa de Calor de Perfiles Académicos (Clusters)')
+    
+    # Normalización Z-Score para visualización:
+    # (Valor Grupo - Media Global) / Desviación Estándar Global
+    # Permite ver qué tan "anormal" es cada valor respecto al promedio de todos los alumnos.
+    global_mean = df[cluster_features].mean()
+    global_std = df[cluster_features].std()
+    
+    profile_z = (profile[cluster_features] - global_mean) / global_std
+    
+    # Heatmap divergente centrado en 0
+    # RdYlGn: Rojo=Bajo, Verde=Alto.
+    # Un Z-Score de 0 (Amarillo) es el promedio. >0 (Verde) es superior, <0 (Rojo) es inferior.
+    sns.heatmap(profile_z, annot=True, cmap='RdYlGn', center=0, fmt='.2f', linewidths=.5)
+    plt.title('Perfil Z-Score: Desviaciones Estándar respecto al Promedio General')
     plt.tight_layout()
     plt.savefig(f"{FIGURES_DIR}/cluster_profiles_heatmap.png")
+    plt.show()
+    plt.close()
+
+    return df
     plt.close()
 
     return df
 
 def analyze_socioeconomic_links(df):
     """
-    OBJETIVO 2: "¿En qué medida estos perfiles están vinculados a condiciones socioeconómicas?"
+    ETAPA 2: Validación Socioeconómica (Chi-Cuadrado, Levene y Tests de Comparación)
+    -----------------------------------------------------------
+    Una vez identificados los perfiles (clusters), esta etapa busca responder:
+    "¿Son estas diferencias de desempeño explicables por factores externos al aula?"
+
+    Metodología Estadística:
+    1. Variables Categóricas (Ej: Becas, Deuda): Se utiliza el test Chi-Cuadrado de independencia.
+       - Hipótesis Nula: No hay asociación entre el cluster y la variable.
+       - Validación: Se verifica la Regla de Cochran (menos del 20% de celdas con frecuencia < 5).
     
-    Variables a analizar:
-    - Entorno Personal: Gender, Age, Marital status, Displaced, Educational special needs, International
-    - Entorno Económico: Scholarship holder, Debtor, Tuition fees up to date
-    - Entorno Macro: Unemployment rate, Inflation rate, GDP
-    - Entorno Familiar/Educativo: Mother's/Father's qualification/occupation (Omitidas en gráfico simple por alta cardinalidad, pero incluidas en análisis)
+    2. Variables Macro-Económicas (Numéricas): Se comparan las medias/medianas entre clusters.
+       - Paso A (Homocedasticidad): Test de Levene para verificar igualdad de varianzas.
+       - Paso B (Elección del Test):
+         * Si varainzas iguales (p>0.05) -> ANOVA One-Way (Paramétrico).
+         * Si varianzas distintas (p<0.05) -> Kruskal-Wallis (No paramétrico, robusto).
     """
     print(f"\n{'='*70}")
-    print("📊 OBJETIVO 2: VÍNCULOS SOCIOECONÓMICOS (Chi-Cuadrado y ANOVA)")
+    print("📊 OBJETIVO 2: VÍNCULOS SOCIOECONÓMICOS (Chi-Cuadrado y ANOVA/Kruskal)")
     print(f"{'='*70}")
     
     # 1. Variables Categóricas (Nominales)
@@ -295,11 +327,14 @@ def analyze_socioeconomic_links(df):
 
         if plot_idx < len(axes):
             ax = axes[plot_idx]
-            contingency_pct.plot(kind='bar', stacked=True, ax=ax, colormap='viridis', alpha=0.9)
-            ax.set_title(f'{col}\n(p={p:.1e})', fontsize=10)
+            # Usar 'tab10' o 'Set2' para variables cualitativas, no 'viridis' (que implica orden)
+            contingency_pct.plot(kind='bar', stacked=True, ax=ax, colormap='tab10', alpha=0.9)
+            ax.set_title(f'{col}\n(p={p:.2e})', fontsize=10) # Formato científico más corto si p es muy bajo
             ax.set_xlabel('')
-            ax.legend(bbox_to_anchor=(1.0, 1.0), fontsize=8)
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+            # Leyenda fuera si es muy grande, o mejor posicionada
+            ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, fontsize=8)
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=0) # Clusters horizontal
+            ax.grid(axis='y', linestyle='--', alpha=0.4)
             plot_idx += 1
             
     # Ocultar ejes sobrantes
@@ -308,12 +343,15 @@ def analyze_socioeconomic_links(df):
 
     plt.tight_layout()
     plt.savefig(f"{FIGURES_DIR}/socioeconomic_categorical_analysis.png")
+    plt.show()
     plt.close()
     
-    # 2. Variables Numéricas (ANOVA)
+    # 2. Variables Numéricas (ANOVA / Kruskal-Wallis)
+    # Analizamos Edad y condiciones macroeconómicas (Desempleo, Inflación, PIB)
     socio_vars_num = ['Age at enrollment', 'Unemployment rate', 'Inflation rate', 'GDP']
     
-    print("\n--- B. Variables Numéricas (ANOVA One-Way y Levene) ---")
+    print("\n--- B. Variables Numéricas (Validación de Supuestos y Comparación) ---")
+    print("Metodología: Levene (Homogeneidad) -> p<0.05 ? Kruskal-Wallis : ANOVA")
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 8))
     axes = axes.flatten()
@@ -353,10 +391,17 @@ def analyze_socioeconomic_links(df):
         })
         
         ax = axes[i]
-        sns.boxplot(x='Cluster_Label', y=col, data=df, ax=ax, palette='Set2')
+        # Boxplot con medias marcadas para complementar la información de distribución
+        sns.boxplot(x='Cluster_Label', y=col, data=df, ax=ax, palette='Set2', showmeans=True, 
+                   meanprops={"marker":"o", "markerfacecolor":"white", "markeredgecolor":"black", "markersize":"8"})
+        
+        # Strip plot ligero para ver densidad real (opcional, ayuda si hay pocos puntos, ruido si hay muchos)
+        # sns.stripplot(x='Cluster_Label', y=col, data=df, ax=ax, color='black', alpha=0.1, size=2)
+
         # Título dinámico
-        ax.set_title(f'{col}\n{test_name} p={p:.1e} | Levene p={p_levene:.1e}', fontsize=10)
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        title_color = 'red' if p < 0.05 else 'black'
+        ax.set_title(f'{col}\n{test_name} p={p:.1e} | Levene p={p_levene:.1e}', fontsize=10, color=title_color)
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=0)
 
         # Desglose de medias si es significativo
         if p < 0.05:
@@ -368,17 +413,27 @@ def analyze_socioeconomic_links(df):
 
     plt.tight_layout()
     plt.savefig(f"{FIGURES_DIR}/socioeconomic_numeric_analysis.png")
+    plt.show()
     plt.close()
 
     return pd.DataFrame(stats_results)
 
 def analyze_dropout_probability(df):
     """
-    OBJETIVO 3: "¿...y a la probabilidad de permanencia o abandono?"
-    
-    Calcula:
-    1. Tasa de Deserción por Cluster.
-    2. Riesgo Relativo (comparado con el mejor cluster).
+    ETAPA 3: Impacto en la Retención Estudiantil (Riesgo Relativo)
+    -----------------------------------------------------------
+    Objetivo: Cuantificar cómo pertenecer a un perfil de desempeño específico
+    aumenta o disminuye la probabilidad de abandonar la carrera.
+
+    Métricas Calculadas:
+    1. Tasa de Deserción: Porcentaje de estudiantes en 'Dropout' dentro del cluster.
+    2. Riesgo Relativo (RR):
+       RR = (Tasa Deserción Cluster X) / (Tasa Deserción Cluster Referencia)
+       
+       Interpretación:
+       - RR = 1.0: Riesgo neutro.
+       - RR > 1.0: Mayor riesgo (Factor de Riesgo).
+       - RR < 1.0: Menor riesgo (Factor Protector).
     """
     print(f"\n{'='*70}")
     print("🎯 OBJETIVO 3: PROBABILIDAD DE ABANDONO Y ÉXITO")
@@ -423,22 +478,40 @@ def analyze_dropout_probability(df):
     
     # Graficar Graduados vs Abandonos
     colors = ['#e74c3c', '#2ecc71'] # Rojo Dropout, Verde Graduate
-    pivot[['Tasa_Desercion', 'Tasa_Graduacion']] .plot(
-        kind='bar', stacked=True, color=colors, ax=ax, width=0.7
+    ax = pivot[['Tasa_Desercion', 'Tasa_Graduacion']].plot(
+        kind='bar', stacked=True, color=colors, ax=ax, width=0.7, edgecolor='black'
     )
     
-    # Añadir etiquetas de valor
+    # Añadir etiquetas de porcentaje dentro de las barras
     for c in ax.containers:
-        ax.bar_label(c, fmt='%.0f%%', label_type='center', color='white', fontweight='bold')
+        # Solo etiquetar si la barra es lo suficientemente grande (>5%)
+        labels = [f'{v.get_height()*100:.0f}%' if v.get_height() > 0.05 else '' for v in c]
+        ax.bar_label(c, labels=labels, label_type='center', color='white', fontweight='bold')
     
-    ax.set_title('Desenlace Final por Perfil Académico Identificado', fontsize=14, pad=20)
+    # Anotación del Riesgo Relativo sobre las barras de Dropout (Rojo)
+    # Suponiendo que el container 0 es Tasa_Desercion (porque pivot tiene orden alfabético? No, especificamos el orden en el plot)
+    # El orden en el plot fue [['Tasa_Desercion', 'Tasa_Graduacion']], así que containers[0] es Desercion.
+    dropout_bars = ax.containers[0]
+    for idx, rect in enumerate(dropout_bars):
+        height = rect.get_height()
+        cluster_name = pivot.index[idx]
+        rr = pivot.loc[cluster_name, 'Riesgo_Relativo']
+        # Anotar arriba de la barra roja, o arriba del todo si es muy alta
+        if rr > 1.0: # Solo resaltar riesgos aumentados
+             ax.text(rect.get_x() + rect.get_width()/2., height + 0.02,
+                     f"RR: {rr:.1f}x",
+                     ha='center', va='bottom', fontsize=9, fontweight='bold', color='#c0392b')
+
+    ax.set_title('Impacto en el Desenlace Final y Riesgo Relativo (RR)', fontsize=14, pad=20)
     ax.set_ylabel('Proporción de Estudiantes')
     ax.set_xlabel('')
-    ax.legend(['Abandono (Dropout)', 'Graduación (Graduate)'], loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=2)
+    ax.legend(['Abandono (Tasa Deserción)', 'Graduación'], loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=2)
     plt.xticks(rotation=0)
+    ax.set_ylim(0, 1.15) # Dar espacio para las anotaciones de RR
     
     plt.tight_layout()
     plt.savefig(f"{FIGURES_DIR}/impacto_desercion_final.png")
+    plt.show()
     plt.close()
     
     print(f"\n✓ Gráfico generado: {FIGURES_DIR}/impacto_desercion_final.png")
