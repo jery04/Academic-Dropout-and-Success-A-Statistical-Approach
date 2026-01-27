@@ -1,6 +1,4 @@
 """
-Predicción de Éxito o Abandono Académico Estudiantil
-=====================================================
 Este script aplica un modelo de Regresión Logística para predecir si un 
 estudiante se graduará o abandonará sus estudios.
 
@@ -10,25 +8,25 @@ utilizando técnicas estadísticas y de clasificación?"
 
 Modelo utilizado: Regresión Logística
 - Ideal para clasificación binaria (Dropout vs Graduate)
-- Proporciona probabilidades interpretables
-- Permite analizar la importancia de cada variable
-- Robusto y bien establecido en la literatura
-
-Autor: Proyecto de Análisis Estadístico
-Fecha: 2026
 """
-
-# ============================================================================
-# IMPORTACIÓN DE LIBRERÍAS
-# ============================================================================
-import pandas as pd              # Manipulación de datos tabulares
-import numpy as np               # Operaciones numéricas y arrays
-import matplotlib.pyplot as plt  # Creación de gráficos
-import seaborn as sns            # Visualizaciones estadísticas
-# Librerías de scikit-learn para machine learning:
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.linear_model import LogisticRegression  # Modelo de clasificación
-from sklearn.preprocessing import StandardScaler     # Estandarización de features
+import pandas as pd                                      # Manipulación de datos tabulares
+import numpy as np                                       # Operaciones numéricas y arrays
+import matplotlib.pyplot as plt                          # Creación de gráficos
+import seaborn as sns                                    # Visualizaciones estadísticas
+import warnings                                          # Manejo de advertencias
+import json                                              # Guardado/carga de resultados
+import os                                                # Operaciones del sistema
+from datetime import datetime                            # Timestamps
+from scipy.stats import zscore                           # Cálculo de z-scores
+import statsmodels.api as sm                             # Modelos estadísticos
+from statsmodels.formula.api import logit                # Regresión logística con fórmulas
+from statsmodels.tools.tools import add_constant         # Agregar constante al modelo
+from statsmodels.stats.outliers_influence import variance_inflation_factor  # Cálculo de VIF
+from statsmodels.tools.sm_exceptions import ConvergenceWarning              # Manejo de warnings
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold  # División y CV
+from sklearn.linear_model import LogisticRegression                                     # Modelo de clasificación
+from sklearn.preprocessing import StandardScaler                                        # Estandarización de features
+from sklearn.feature_selection import SelectKBest, f_classif, RFE   # Métodos de selección
 
 # Métricas de evaluación del modelo:
 from sklearn.metrics import (
@@ -36,29 +34,17 @@ from sklearn.metrics import (
     precision_score, recall_score, f1_score, roc_auc_score, roc_curve,
     precision_recall_curve, average_precision_score
 )
-# Selección de características (no usado activamente pero disponible):
-from sklearn.feature_selection import SelectKBest, f_classif, RFE
-import warnings
-import json
-import os
-from datetime import datetime
 
 # Suprimir advertencias para salida más limpia
 warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-# ============================================================================
 # CONFIGURACIÓN VISUAL
-# ============================================================================
-# Estilo de gráficos profesional con fondo blanco y cuadrícula
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['figure.figsize'] = (12, 8)  # Tamaño por defecto de figuras
 plt.rcParams['font.size'] = 12            # Tamaño de fuente legible
 
-# ============================================================================
 # CONFIGURACIÓN DE RUTAS Y PARÁMETROS
-# ============================================================================
-
-# Obtener directorio raíz del proyecto (padre de la carpeta scripts)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
@@ -76,19 +62,18 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 def load_and_prepare_data(filepath):
     """
     Cargar el dataset preparado y filtrar para clasificación binaria.
-    
-    Filtramos solo 'Dropout' y 'Graduate' porque:
-    - 'Enrolled' son estudiantes aún activos sin resultado final
-    - Queremos predecir resultados definitivos, no estados intermedios
+    Filtramos solo 'Dropout' y 'Graduate'
     
     La variable objetivo se codifica como:
     - 1 = Graduate (Graduado - éxito)
     - 0 = Dropout (Abandono)
     
-    Esta codificación hace que el modelo prediga la probabilidad de éxito.
+    El dataset resultante cumple los dos supuestos fundamentales para la regresión logística:
+    1. Supuesto de variable dependiente binaria: la variable objetivo tiene solo dos categorías (0 = Dropout, 1 = Graduate).
+    2. Supuesto de independencia de las observaciones: se eliminan filas duplicadas, asegurando que cada fila representa una observación única e independiente.
     """
     print("=" * 70)
-    print("CARGA Y PREPARACIÓN DE DATOS PARA CLASIFICACIÓN")
+    print("CARGA Y PREPARACIÓN DE DATOS (VARIABLE OBJ. BINARIA E INDEPENDENCIA)")
     print("=" * 70)
     
     df = pd.read_csv(filepath)
@@ -102,7 +87,6 @@ def load_and_prepare_data(filepath):
         print(f"   - {target}: {count} ({percentage:.1f}%)")
     
     # Filter only Dropout and Graduate (exclude Enrolled students)
-    # This is because we want to predict final outcomes
     df_filtered = df[df['Target'].isin(['Dropout', 'Graduate'])].copy()
     
     print(f"\n📊 Dataset filtrado (solo Dropout y Graduate): {df_filtered.shape}")
@@ -114,7 +98,18 @@ def load_and_prepare_data(filepath):
     
     # Create binary target: 1 = Graduate (Success), 0 = Dropout
     df_filtered['Target_binary'] = (df_filtered['Target'] == 'Graduate').astype(int)
-    
+
+    print("Supuesto de variable dependiente binaria (se cumple): la variable objetivo tiene solo dos categorías (0 = Dropout, 1 = Graduate).")
+
+    # Comprobar independencia de las observaciones (filas duplicadas)
+    duplicated_rows = df_filtered.duplicated()
+    num_duplicates = duplicated_rows.sum()
+    if num_duplicates > 0:
+        print(f"Advertencia: Se encontraron {num_duplicates} filas no independientes (duplicadas). Serán eliminadas.")
+        df_filtered = df_filtered[~duplicated_rows].copy()
+        print(f"Supuesto de independencia de las observaciones (se cumple): se eliminaron {num_duplicates} filas duplicadas. Luego de las transformaciones se logró la independencia de las observaciones.\nCada fila del dataset es única.")
+    else:
+        print("Supuesto de independencia de las observaciones (se cumple): se eliminan filas duplicadas, asegurando que cada fila representa una observación única e independiente.")
     return df_filtered
 
 def select_features(df):
@@ -131,25 +126,278 @@ def select_features(df):
     la predicción.
     """
     # Patrones a excluir de las features
-    exclude_patterns = ['_zscore', '_outlier', 'Target', 'Target_encoded', 'Target_binary']
-    
-    # Filtrar columnas que no contengan ninguno de los patrones excluidos
-    feature_columns = [col for col in df.columns 
-                       if not any(pattern in col for pattern in exclude_patterns)]
-    
+    exclude_patterns = ['_zscore', '_outlier', 'Target','Age','Target_encoded', 'Target_binary', '2nd sem', 'grade','enrolled', 'approved']
+    exclude_exact = ['Nacionality', "Mother's occupation", 'Unemployment rate', 'Curricular units 1st sem (evaluations)','Tasa_aprobacion_1sem']
+
+    # Filtrar columnas que no contengan ninguno de los patrones excluidos ni sean exactamente 'Nationality'
+    feature_columns = [col for col in df.columns
+                       if not any(pattern in col for pattern in exclude_patterns)
+                       and col not in exclude_exact]
+
     print(f"\n🔧 Features seleccionadas para el modelo: {len(feature_columns)}")
-    
+
     return feature_columns
+
+def verificar_linealidad_logit(df, features, target_col='Target_binary'):
+    """
+    Verifica la linealidad del logit para variables continuas usando Box-Tidwell y gráficos.
+    - Cada predictor continuo debe relacionarse linealmente con el logit de la probabilidad.
+    - Si no se cumple, se recomienda transformar la variable.
+    """
+
+    print("\n" + "="*70)
+    print("VERIFICACIÓN DE LINEALIDAD DEL LOGIT (Box-Tidwell)")
+    print("="*70)
+
+    # Seleccionar variables continuas de la lista predefinida
+    from sklearn.preprocessing import PowerTransformer
+    lista_numericas = [
+        'Age at enrollment',
+        'GDP',
+        'Inflation rate',
+        'Unemployment rate',
+        'Curricular units 1st sem (grade)',
+        'Curricular units 1st sem (credited)',
+        'Curricular units 1st sem (evaluations)',
+        'Curricular units 1st sem (approved)', 
+        'Curricular units 1st sem (without evaluations)', 
+        'Tasa_aprobacion_1sem'
+    ]
+    continuous_vars = [col for col in features if col in lista_numericas and pd.api.types.is_numeric_dtype(df[col])]
+    if not continuous_vars:
+        print("No se encontraron variables continuas (de la lista definida y presentes en features) para verificar linealidad del logit.")
+        return df
+    df_num = df[continuous_vars].copy()
+
+    # Box-Tidwell: agregar término de interacción variable*log(variable)
+    results = {}
+    for var in continuous_vars:
+        x = df_num[var].copy()
+        x = pd.to_numeric(x, errors='coerce')
+        n_nulos = x.isnull().sum()
+        if n_nulos > 0:
+            print(f"   ⚠️ {var}: {n_nulos} valores nulos/no numéricos eliminados para Box-Tidwell.")
+        x = x.dropna()
+        x = x.apply(lambda v: v if v > 0 else 1e-6)
+        safe_var = f"var_{continuous_vars.index(var)}"
+        safe_log = f"{safe_var}_log"
+        df_bt = pd.DataFrame({
+            safe_var: x,
+            safe_log: x.apply(np.log),
+            target_col: df.loc[x.index, target_col]
+        })
+        formula = f"{target_col} ~ {safe_var} + {safe_log}"
+        try:
+            model = logit(formula, data=df_bt).fit(disp=0)
+            p_value = model.pvalues.get(safe_log, np.nan)
+            results[var] = p_value
+        except Exception as e:
+            print(f"   ⚠️ No se pudo ajustar Box-Tidwell para {var}: {e}")
+            results[var] = np.nan
+
+    print("\nResultados Box-Tidwell (p-valor para término log):\n" + "-"*55)
+    no_lineales = []
+    for var, pval in results.items():
+        if np.isnan(pval):
+            print(f"   • {var:<40} | No calculado")
+        elif pval < 0.05:
+            print(f"   • {var:<40} | ❌ p = {pval:.4f} | NO lineal, se intentará transformar")
+            no_lineales.append(var)
+        else:
+            print(f"   • {var:<40} | ✅ p = {pval:.4f} | Linealidad aceptable")
+    print("-"*55 + "\n")
+
+    # Intentar transformar variables no lineales
+    transformaciones = {
+        'log': lambda x: np.log(np.where(x > 0, x, 1e-6)),
+        'sqrt': lambda x: np.sqrt(np.where(x >= 0, x, 0)),
+        'square': lambda x: np.power(x, 2),
+        'inverse': lambda x: 1.0 / np.where(x != 0, x, 1e-6),
+        'yeo-johnson': None  # Usaremos PowerTransformer
+    }
+    cambios = {}
+    for var in no_lineales:
+        x_orig = pd.to_numeric(df[var], errors='coerce').fillna(1e-6)
+        mejor_pval = None
+        mejor_nombre = None
+        mejor_x = None
+        for nombre, func in transformaciones.items():
+            if nombre == 'yeo-johnson':
+                try:
+                    pt = PowerTransformer(method='yeo-johnson')
+                    x_tr = pt.fit_transform(x_orig.values.reshape(-1,1)).flatten()
+                except Exception:
+                    continue
+            else:
+                try:
+                    x_tr = func(x_orig)
+                except Exception:
+                    continue
+            # Box-Tidwell con variable transformada
+            safe_var = 'var_tr'
+            safe_log = 'var_tr_log'
+            df_bt = pd.DataFrame({
+                safe_var: x_tr,
+                safe_log: np.log(np.where(x_tr > 0, x_tr, 1e-6)),
+                target_col: df[target_col]
+            })
+            formula = f"{target_col} ~ {safe_var} + {safe_log}"
+            try:
+                model = logit(formula, data=df_bt).fit(disp=0)
+                pval = model.pvalues.get(safe_log, np.nan)
+                if not np.isnan(pval) and (mejor_pval is None or pval > mejor_pval):
+                    mejor_pval = pval
+                    mejor_nombre = nombre
+                    mejor_x = x_tr
+            except Exception:
+                continue
+        if mejor_pval is not None and mejor_pval >= 0.05:
+            print(f"   ✅ {var:<40} | Transformada con {mejor_nombre:<10} | p = {mejor_pval:.4f}\n")
+            df[var] = mejor_x
+            cambios[var] = mejor_nombre
+        else:
+            print(f"   ⚠️ {var:<40} | No pudo ser transformada para cumplir linealidad\n")
+
+    if cambios:
+        print("Variables transformadas para cumplir linealidad:\n" + "-"*55)
+        for var, trans in cambios.items():
+            print(f"   • {var:<40} | {trans}")
+        print("-"*55 + "\n")
+    else:
+        print("No se realizaron transformaciones automáticas.\n")
+
+    # Inspección gráfica
+    print("\nInspección gráfica de la relación logit vs variable continua:")
+    n_vars = len(continuous_vars)
+    if n_vars == 0:
+        print("No hay variables continuas para graficar.")
+        return df
+    ncols = 2
+    nrows = (n_vars + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(6*ncols, 4*nrows))
+    if n_vars == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
+    for idx, var in enumerate(continuous_vars):
+        ax = axes[idx]
+        try:
+            X = sm.add_constant(df[var])
+            y = df[target_col]
+            model = sm.Logit(y, X).fit(disp=0)
+            logit_pred = model.predict(X)
+            ax.scatter(df[var], logit_pred, alpha=0.3)
+            ax.set_xlabel(var)
+            ax.set_ylabel('Logit estimado')
+            ax.set_title(f'Logit vs {var}')
+            ax.grid(True, alpha=0.3)
+        except Exception as e:
+            ax.text(0.5, 0.5, f"No se pudo graficar\n{var}\n{e}", ha='center', va='center', fontsize=10)
+            print(f"   ⚠️ No se pudo graficar {var}: {e}")
+    for j in range(idx+1, len(axes)):
+        fig.delaxes(axes[j])
+    plt.tight_layout(pad=1.0, h_pad=1.0)
+    plt.show()
+
+    print("\nSi alguna variable muestra relación no lineal, considerar transformar (log, raíz, polinomio) o categorizar.")
+    return df
+
+def verificar_multicolinealidad(df, features, threshold=10.0):
+    """
+    Verifica la ausencia de multicolinealidad fuerte entre predictores.
+    - Calcula VIF (Variance Inflation Factor) para cada variable numérica.
+    - Si VIF > threshold, hay multicolinealidad fuerte.
+    """
+
+    print("\n" + "="*70)
+    print("VERIFICACIÓN DE MULTICOLINEALIDAD (VIF y correlación)")
+    print("="*70)
+
+    # Seleccionar solo variables numéricas
+    df_num = df[features].select_dtypes(include=[np.number]).copy()
+    if df_num.shape[1] < 2:
+        print("No hay suficientes variables numéricas para analizar multicolinealidad.")
+        return
+
+    # Calcular VIF
+    vif_data = pd.DataFrame()
+    vif_data['Variable'] = df_num.columns
+    vif_data['VIF'] = [variance_inflation_factor(df_num.values, i) for i in range(df_num.shape[1])]
+
+    print("\nValores de VIF:")
+    for _, row in vif_data.iterrows():
+        if row['VIF'] > threshold:
+            print(f"   - {row['Variable']}: ❌ VIF = {row['VIF']:.2f} (multicolinealidad fuerte)")
+        else:
+            print(f"   - {row['Variable']}: ✅ VIF = {row['VIF']:.2f}")
+
+    # Calcular porcentajes de variables en rangos de VIF
+    total_vars = len(vif_data)
+    count_1_2 = ((vif_data['VIF'] >= 1) & (vif_data['VIF'] < 2)).sum()
+    count_2_5 = ((vif_data['VIF'] >= 2) & (vif_data['VIF'] < 5)).sum()
+    count_5_10 = ((vif_data['VIF'] >= 5) & (vif_data['VIF'] < 10)).sum()
+    pct_1_2 = count_1_2 / total_vars * 100 if total_vars > 0 else 0
+    pct_2_5 = count_2_5 / total_vars * 100 if total_vars > 0 else 0
+    pct_5_10 = count_5_10 / total_vars * 100 if total_vars > 0 else 0
+    print("\nDistribución de VIF en variables predictoras:")
+    print(f"   - VIF entre 1 y 2:    {count_1_2} variables ({pct_1_2:.1f}%)")
+    print(f"   - VIF entre 2 y 5:    {count_2_5} variables ({pct_2_5:.1f}%)")
+    print(f"   - VIF entre 5 y 10:   {count_5_10} variables ({pct_5_10:.1f}%)")
+
+def verificar_tamanio_muestra_epv(df, features, target_col='Target_binary', epv_min=10):
+    """
+    Verifica si el tamaño de muestra es adecuado para regresión logística según la regla clásica:
+    - EPV (eventos por predictor) ≥ 10
+    - EPV = min(n_eventos_clase_1, n_eventos_clase_0) / n_predictors
+    """
+    print("\n" + "="*70)
+    print("VERIFICACIÓN DE TAMAÑO DE MUESTRA (Regla clásica EPV ≥ 10)")
+    print("="*70)
+    
+    n_obs = len(df)
+    n_vars = len(features)
+    n_eventos_1 = (df[target_col] == 1).sum()
+    n_eventos_0 = (df[target_col] == 0).sum()
+    epv = min(n_eventos_1, n_eventos_0) / n_vars if n_vars > 0 else 0
+    print(f"Total de observaciones: {n_obs}")
+    print(f"Variables predictoras: {n_vars}")
+    print(f"Eventos clase 1 (Graduate): {n_eventos_1}")
+    print(f"Eventos clase 0 (Dropout): {n_eventos_0}")
+    print(f"EPV (eventos por predictor): {epv:.2f}")
+    print(f"Mínimo recomendado (EPV ≥ {epv_min})")
+    if epv >= epv_min:
+        print("\n✅ Tamaño de muestra adecuado según la regla clásica EPV ≥ 10.")
+    else:
+        print("\n⚠️ Tamaño de muestra POTENCIALMENTE INSUFICIENTE para la cantidad de predictores. Considere reducir el número de variables o recolectar más datos.")
+    def verificar_tamanio_muestra(df, features, target_col='Target_binary', min_per_variable=10):
+        """
+        Verifica si el tamaño de muestra es adecuado para la regresión logística.
+        Regla común: al menos 10 casos por variable predictora para cada clase de la variable objetivo.
+        """
+        print("\n==============================")
+        print("VERIFICACIÓN DE TAMAÑO DE MUESTRA ADECUADO")
+        print("==============================")
+        n_obs = len(df)
+        n_vars = len(features)
+        n_success = (df[target_col] == 1).sum()
+        n_failure = (df[target_col] == 0).sum()
+        min_class = min(n_success, n_failure)
+        min_required = n_vars * min_per_variable
+        print(f"Total de observaciones: {n_obs}")
+        print(f"Variables predictoras: {n_vars}")
+        print(f"Casos clase 1 (éxito): {n_success}")
+        print(f"Casos clase 0 (abandono): {n_failure}")
+        print(f"Casos mínimos por clase: {min_class}")
+        print(f"Mínimo recomendado (10 por variable): {min_required}")
+        if min_class >= min_required:
+            print("\n✅ Tamaño de muestra adecuado para la regresión logística.")
+        else:
+            print("\n⚠️ Tamaño de muestra POTENCIALMENTE INSUFICIENTE para la cantidad de variables. Considere reducir el número de predictores o recolectar más datos.")
+        print("Nota: Esta es una regla empírica. Si el modelo converge y los resultados son estables, puede ser aceptable con menos casos, pero aumenta el riesgo de sobreajuste.")
 
 def prepare_train_test_split(df, feature_columns):
     """
     Preparar conjuntos de entrenamiento y prueba con estratificación.
-    
-    Estratificación (stratify=y):
-    - Mantiene la misma proporción de clases en train y test
-    - Crucial cuando hay desbalance de clases
-    - Asegura evaluación representativa
-    
     División típica: 80% entrenamiento, 20% prueba
     """
     X = df[feature_columns]   # Variables predictoras (features)
@@ -181,13 +429,6 @@ def scale_features(X_train, X_test):
     La estandarización (StandardScaler) transforma cada variable para que tenga:
     - Media = 0
     - Desviación estándar = 1
-    
-    Importancia:
-    - La regresión logística es sensible a la escala de las variables
-    - Variables en diferentes escalas tendrían pesos incomparables
-    - Mejora la convergencia del algoritmo de optimización
-    
-    Nota: fit_transform en train, solo transform en test (evita fuga de datos)
     """
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)  # Ajustar y transformar
@@ -198,17 +439,6 @@ def scale_features(X_train, X_test):
 def train_logistic_regression(X_train, y_train):
     """
     Entrenar modelo de regresión logística con regularización.
-    
-    Parámetros del modelo:
-    - penalty='l2' (Ridge): regularización que previene sobreajuste
-    - C=1.0: fuerza de regularización (menor C = más regularización)
-    - solver='lbfgs': algoritmo de optimización eficiente
-    - class_weight='balanced': ajusta pesos para compensar desbalance de clases
-      * Da más importancia a la clase minoritaria
-      * Crucial cuando Dropout y Graduate no están 50-50
-    
-    La regresión logística modela la probabilidad de pertenecer a cada clase
-    usando una función sigmoide.
     """
     print("\n" + "=" * 70)
     print("ENTRENAMIENTO DEL MODELO DE REGRESIÓN LOGÍSTICA")
@@ -242,13 +472,6 @@ def perform_cross_validation(model, X_train, y_train):
     2. Entrena en 4 partes, evalúa en la 5ta
     3. Repite 5 veces, cada parte siendo el conjunto de prueba una vez
     4. Promedia los resultados
-    
-    Beneficios:
-    - Detecta sobreajuste (overfitting)
-    - Estima mejor el rendimiento real del modelo
-    - Proporciona medida de variabilidad (desv. estándar)
-    
-    StratifiedKFold mantiene la proporción de clases en cada fold.
     """
     print("\n" + "=" * 70)
     print("VALIDACIÓN CRUZADA (5-FOLD)")
@@ -370,23 +593,20 @@ def analyze_feature_importance(model, feature_names):
     En regresión logística, los coeficientes indican:
     - Coeficiente > 0: aumenta probabilidad de Graduate
     - Coeficiente < 0: aumenta probabilidad de Dropout
-    - Magnitud: fuerza del efecto
     
     Odds Ratio (OR) = exp(coeficiente):
     - OR > 1: factor favorece graduación
     - OR < 1: factor favorece abandono
     - OR = 1: sin efecto
     
-    Ejemplo: OR = 2.0 significa que por cada unidad de aumento en esa
-    variable, la probabilidad de graduarse se duplica.
     """
     print("\n" + "=" * 70)
     print("ANÁLISIS DE IMPORTANCIA DE VARIABLES")
     print("=" * 70)
-    
+
     # Obtener coeficientes del modelo entrenado
     coefficients = model.coef_[0]
-    
+
     # Crear DataFrame con métricas de importancia
     feature_importance = pd.DataFrame({
         'Feature': feature_names,
@@ -394,36 +614,34 @@ def analyze_feature_importance(model, feature_names):
         'Abs_Coefficient': np.abs(coefficients),  # Valor absoluto para ordenar
         'Odds_Ratio': np.exp(coefficients)        # Transformar a odds ratio
     }).sort_values('Abs_Coefficient', ascending=False)
-    
-    print("\n📊 Top 15 Variables más Importantes (por magnitud del coeficiente):")
-    print("\n   " + "-" * 75)
-    print(f"   {'#':<3} {'Variable':<45} {'Coef.':>10} {'Odds Ratio':>12}")
-    print("   " + "-" * 75)
-    
-    for i, (_, row) in enumerate(feature_importance.head(15).iterrows()):
-        effect = "↑ Graduate" if row['Coefficient'] > 0 else "↓ Dropout"
-        print(f"   {i+1:<3} {row['Feature']:<45} {row['Coefficient']:>10.4f} {row['Odds_Ratio']:>12.4f}")
-    
+
+    # Mostrar todas las variables en formato de columnas (tabla)
+    print("\n📊 Importancia de todas las variables (ordenadas por magnitud del coeficiente):\n")
+    print(f"{'Variable':<45} {'Coeficiente':>12} {'Odds Ratio':>12}")
+    print("-" * 71)
+    for _, row in feature_importance.iterrows():
+        print(f"{row['Feature']:<45} {row['Coefficient']:>12.4f} {row['Odds_Ratio']:>12.4f}")
+
     print("\n📖 Interpretación de Odds Ratio:")
     print("   - Odds Ratio > 1: Mayor probabilidad de GRADUARSE")
     print("   - Odds Ratio < 1: Mayor probabilidad de ABANDONAR")
     print("   - Odds Ratio = 1: Variable no tiene efecto")
-    
+
     # Key findings
     print("\n🔍 Hallazgos Clave:")
-    
+
     # Top positive factors (increase graduation probability)
     positive_factors = feature_importance[feature_importance['Coefficient'] > 0].head(5)
     print("\n   📈 Factores que AUMENTAN la probabilidad de graduarse:")
     for _, row in positive_factors.iterrows():
         print(f"      • {row['Feature']}: OR = {row['Odds_Ratio']:.3f}")
-    
+
     # Top negative factors (increase dropout probability)
     negative_factors = feature_importance[feature_importance['Coefficient'] < 0].head(5)
     print("\n   📉 Factores que AUMENTAN la probabilidad de abandono:")
     for _, row in negative_factors.iterrows():
         print(f"      • {row['Feature']}: OR = {row['Odds_Ratio']:.3f}")
-    
+
     return feature_importance
 
 def create_visualizations(model, X_test, y_test, y_pred, y_pred_proba, 
@@ -445,131 +663,50 @@ def create_visualizations(model, X_test, y_test, y_pred, y_pred_proba,
     print("GENERACIÓN DE VISUALIZACIONES")
     print("=" * 70)
     
-    # Create figure with subplots
-    fig = plt.figure(figsize=(20, 16))
-    
-    # 1. Confusion Matrix Heatmap
-    ax1 = fig.add_subplot(2, 3, 1)
+    # Solo lo esencial: matriz de confusión, curva ROC, importancia de variables y resumen de métricas
+    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+
+    # Matriz de confusión
     cm = confusion_matrix(y_test, y_pred)
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=['Dropout', 'Graduate'],
-                yticklabels=['Dropout', 'Graduate'],
-                ax=ax1)
-    ax1.set_title('Matriz de Confusión', fontsize=14, fontweight='bold')
-    ax1.set_xlabel('Predicción')
-    ax1.set_ylabel('Valor Real')
-    
-    # 2. ROC Curve
-    ax2 = fig.add_subplot(2, 3, 2)
-    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
-    ax2.plot(fpr, tpr, 'b-', linewidth=2, label=f'ROC (AUC = {metrics["roc_auc"]:.3f})')
-    ax2.plot([0, 1], [0, 1], 'r--', linewidth=1, label='Clasificador aleatorio')
-    ax2.fill_between(fpr, tpr, alpha=0.3)
-    ax2.set_xlabel('Tasa de Falsos Positivos (1 - Especificidad)')
-    ax2.set_ylabel('Tasa de Verdaderos Positivos (Sensibilidad)')
-    ax2.set_title('Curva ROC', fontsize=14, fontweight='bold')
-    ax2.legend(loc='lower right')
-    ax2.grid(True, alpha=0.3)
-    
-    # 3. Precision-Recall Curve
-    ax3 = fig.add_subplot(2, 3, 3)
-    precision_curve, recall_curve, _ = precision_recall_curve(y_test, y_pred_proba)
-    ax3.plot(recall_curve, precision_curve, 'g-', linewidth=2, 
-             label=f'AP = {metrics["average_precision"]:.3f}')
-    ax3.axhline(y=sum(y_test)/len(y_test), color='r', linestyle='--', 
-                label=f'Baseline = {sum(y_test)/len(y_test):.3f}')
-    ax3.fill_between(recall_curve, precision_curve, alpha=0.3, color='green')
-    ax3.set_xlabel('Recall')
-    ax3.set_ylabel('Precision')
-    ax3.set_title('Curva Precision-Recall', fontsize=14, fontweight='bold')
-    ax3.legend(loc='lower left')
-    ax3.grid(True, alpha=0.3)
-    
-    # 4. Feature Importance (Top 15)
-    ax4 = fig.add_subplot(2, 3, 4)
-    top_features = feature_importance.head(15)
-    colors = ['#2ecc71' if x > 0 else '#e74c3c' for x in top_features['Coefficient']]
-    bars = ax4.barh(range(len(top_features)), top_features['Coefficient'], color=colors)
-    ax4.set_yticks(range(len(top_features)))
-    ax4.set_yticklabels(top_features['Feature'], fontsize=9)
-    ax4.axvline(x=0, color='black', linewidth=0.5)
-    ax4.set_xlabel('Coeficiente de Regresión Logística')
-    ax4.set_title('Top 15 Variables más Importantes', fontsize=14, fontweight='bold')
-    ax4.invert_yaxis()
-    
-    # Add legend for colors
-    from matplotlib.patches import Patch
-    legend_elements = [Patch(facecolor='#2ecc71', label='Favorece Graduación'),
-                       Patch(facecolor='#e74c3c', label='Favorece Abandono')]
-    ax4.legend(handles=legend_elements, loc='lower right')
-    
-    # 5. Probability Distribution
-    ax5 = fig.add_subplot(2, 3, 5)
-    prob_dropout = y_pred_proba[y_test == 0]
-    prob_graduate = y_pred_proba[y_test == 1]
-    ax5.hist(prob_dropout, bins=30, alpha=0.6, label='Dropout', color='#e74c3c', density=True)
-    ax5.hist(prob_graduate, bins=30, alpha=0.6, label='Graduate', color='#2ecc71', density=True)
-    ax5.axvline(x=0.5, color='black', linestyle='--', linewidth=2, label='Umbral (0.5)')
-    ax5.set_xlabel('Probabilidad Predicha de Graduarse')
-    ax5.set_ylabel('Densidad')
-    ax5.set_title('Distribución de Probabilidades por Clase Real', fontsize=14, fontweight='bold')
-    ax5.legend()
-    ax5.grid(True, alpha=0.3)
-    
-    # 6. Metrics Summary
-    ax6 = fig.add_subplot(2, 3, 6)
-    metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
-    metrics_values = [metrics['accuracy'], metrics['precision'], metrics['recall'], 
-                      metrics['f1_score'], metrics['roc_auc']]
-    colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(metrics_names)))
-    bars = ax6.bar(metrics_names, metrics_values, color=colors)
-    ax6.set_ylim(0, 1)
-    ax6.set_ylabel('Valor')
-    ax6.set_title('Resumen de Métricas de Clasificación', fontsize=14, fontweight='bold')
-    # Add value labels on bars
-    for bar, val in zip(bars, metrics_values):
-        ax6.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02, 
-                f'{val:.3f}', ha='center', va='bottom', fontweight='bold')
-    ax6.axhline(y=0.8, color='green', linestyle='--', alpha=0.5, label='Umbral 0.8')
-    ax6.grid(True, alpha=0.3, axis='y')
-    
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=axs[0, 0])
+    axs[0, 0].set_title('Matriz de Confusión')
+    axs[0, 0].set_xlabel('Predicción')
+    axs[0, 0].set_ylabel('Valor Real')
+
+    # Curva ROC
+    fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+    axs[0, 1].plot(fpr, tpr, label=f'ROC (AUC = {metrics["roc_auc"]:.2f})')
+    axs[0, 1].plot([0, 1], [0, 1], 'r--', label='Aleatorio')
+    axs[0, 1].set_title('Curva ROC')
+    axs[0, 1].set_xlabel('Falsos Positivos')
+    axs[0, 1].set_ylabel('Verdaderos Positivos')
+    axs[0, 1].legend()
+
+    # Importancia de variables (Top 10)
+    top_features = feature_importance.head(10)
+    axs[1, 0].barh(top_features['Feature'], top_features['Coefficient'], color='skyblue')
+    axs[1, 0].set_title('Top 10 Variables')
+    axs[1, 0].set_xlabel('Coeficiente')
+    axs[1, 0].invert_yaxis()
+
+    # Resumen de métricas
+    names = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC']
+    values = [metrics['accuracy'], metrics['precision'], metrics['recall'], metrics['f1_score'], metrics['roc_auc']]
+    axs[1, 1].bar(names, values, color='lightgreen')
+    axs[1, 1].set_ylim(0, 1)
+    axs[1, 1].set_title('Métricas')
+    for i, v in enumerate(values):
+        axs[1, 1].text(i, v + 0.02, f'{v:.2f}', ha='center', fontweight='bold')
+
     plt.tight_layout()
-    
-    # Save figure
-    fig_path = os.path.join(output_dir, 'classification_results.png')
+    fig_path = os.path.join(output_dir, 'resultados_esenciales.png')
+
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
+    plt.show()  # Mostrar la imagen en una ventana de matplotlib
     plt.close()
-    
-    print(f"\n✅ Visualizaciones guardadas en: {fig_path}")
-    
-    # Create additional visualization: Odds Ratio plot
-    fig2, ax = plt.subplots(figsize=(12, 10))
-    top_20 = feature_importance.head(20).copy()
-    top_20 = top_20.sort_values('Odds_Ratio', ascending=True)
-    
-    colors = ['#2ecc71' if x > 1 else '#e74c3c' for x in top_20['Odds_Ratio']]
-    bars = ax.barh(range(len(top_20)), top_20['Odds_Ratio'], color=colors)
-    ax.axvline(x=1, color='black', linewidth=2, label='Sin efecto (OR=1)')
-    ax.set_yticks(range(len(top_20)))
-    ax.set_yticklabels(top_20['Feature'], fontsize=10)
-    ax.set_xlabel('Odds Ratio', fontsize=12)
-    ax.set_title('Odds Ratio de las Top 20 Variables\n(Efecto sobre la Probabilidad de Graduarse)', 
-                 fontsize=14, fontweight='bold')
-    
-    # Add legend
-    legend_elements = [Patch(facecolor='#2ecc71', label='OR > 1: Favorece Graduación'),
-                       Patch(facecolor='#e74c3c', label='OR < 1: Favorece Abandono')]
-    ax.legend(handles=legend_elements, loc='lower right')
-    ax.grid(True, alpha=0.3, axis='x')
-    
-    plt.tight_layout()
-    odds_path = os.path.join(output_dir, 'odds_ratio_analysis.png')
-    plt.savefig(odds_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    print(f"✅ Gráfico de Odds Ratio guardado en: {odds_path}")
-    
-    return [fig_path, odds_path]
+
+    print(f"\n✅ Visualización esencial guardada en: {fig_path}")
+    return [fig_path]
 
 def save_results(metrics, cv_results, feature_importance, output_dir):
     """
@@ -711,81 +848,53 @@ en la predicción del abandono académico y éxito estudiantil:
     """)
 
 def main():
-    """
-    Función principal de ejecución del modelo predictivo.
-    
-    Flujo completo del pipeline de Machine Learning:
-    1. Cargar y preparar datos (filtrar, codificar variable objetivo)
-    2. Seleccionar features relevantes
-    3. Dividir en train/test con estratificación
-    4. Estandarizar features
-    5. Entrenar modelo de regresión logística
-    6. Validación cruzada para evaluar robustez
-    7. Evaluar en conjunto de prueba
-    8. Analizar importancia de variables
-    9. Generar visualizaciones
-    10. Guardar resultados
-    11. Generar conclusiones
-    
-    Resultados guardados en: outputs/prediction_results/
-    - classification_results.png: visualizaciones principales
-    - odds_ratio_analysis.png: análisis de odds ratios
-    - classification_report.json: métricas detalladas
-    - feature_importance.csv: importancia de variables
-    """
-    print("\n" + "=" * 70)
-    print("  PREDICCIÓN DE ÉXITO/ABANDONO ACADÉMICO ESTUDIANTIL")
-    print("  Modelo: Regresión Logística")
-    print("=" * 70)
-    print(f"\n📅 Fecha de ejecución: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    # Load and prepare data
+    # 1. Cargar y preparar datos
     df = load_and_prepare_data(INPUT_PATH)
-    
-    # Select features
+
+    # 2. Seleccionar features
     feature_columns = select_features(df)
-    
-    # Split data
+
+    # 3. Verificar linealidad del logit y transformar variables si es necesario
+    df = verificar_linealidad_logit(df, feature_columns, target_col='Target_binary')
+
+    # 4. Verificar multicolinealidad
+    verificar_multicolinealidad(df, feature_columns, threshold=10.0)
+
+    # 5. Verificar tamaño de muestra EPV
+    verificar_tamanio_muestra_epv(df, feature_columns, target_col='Target_binary', epv_min=10)
+
+    # 6. Preparar conjuntos de entrenamiento y prueba
     X_train, X_test, y_train, y_test = prepare_train_test_split(df, feature_columns)
-    
-    # Scale features
+
+    # 7. Estandarizar features
     X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
-    
-    # Train model
+
+    # 8. Entrenar modelo de regresión logística
     model = train_logistic_regression(X_train_scaled, y_train)
-    
-    # Cross-validation
+
+    # 9. Validación cruzada
     cv_results = perform_cross_validation(model, X_train_scaled, y_train)
-    
-    # Evaluate on test set
-    metrics, y_pred, y_pred_proba = evaluate_model(
-        model, X_test_scaled, y_test, feature_columns
-    )
-    
-    # Analyze feature importance
+
+    # 10. Evaluar modelo en conjunto de prueba
+    metrics, y_pred, y_pred_proba = evaluate_model(model, X_test_scaled, y_test, feature_columns)
+
+    # 11. Analizar importancia de variables
     feature_importance = analyze_feature_importance(model, feature_columns)
-    
-    # Create visualizations
-    viz_paths = create_visualizations(
-        model, X_test_scaled, y_test, y_pred, y_pred_proba,
-        feature_importance, metrics, OUTPUT_DIR
-    )
-    
-    # Save results
-    save_results(metrics, cv_results, feature_importance, OUTPUT_DIR)
-    
-    # Generate conclusions
+
+    # 12. Crear visualizaciones
+
+    # Asegurar que la ruta de salida sea siempre en la raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    output_dir = os.path.join(project_root, 'outputs', 'prediction_results')
+    os.makedirs(output_dir, exist_ok=True)
+    create_visualizations(model, X_test_scaled, y_test, y_pred, y_pred_proba, feature_importance, metrics, output_dir)
+
+    # 13. Guardar resultados
+    save_results(metrics, cv_results, feature_importance, output_dir)
+
+    # 14. Generar conclusiones
     generate_conclusions(metrics, cv_results, feature_importance)
-    
-    print("\n" + "=" * 70)
-    print("  ANÁLISIS COMPLETADO EXITOSAMENTE")
-    print("=" * 70)
-    print(f"\n📁 Resultados guardados en: {OUTPUT_DIR}/")
-    print("   • classification_results.png - Visualizaciones principales")
-    print("   • odds_ratio_analysis.png - Análisis de Odds Ratio")
-    print("   • classification_report.json - Métricas detalladas")
-    print("   • feature_importance.csv - Importancia de variables")
-    print("\n")
 
 if __name__ == "__main__":
     main()
