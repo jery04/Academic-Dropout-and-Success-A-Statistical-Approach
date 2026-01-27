@@ -126,8 +126,8 @@ def select_features(df):
     la predicción.
     """
     # Patrones a excluir de las features
-    exclude_patterns = ['_zscore', '_outlier', 'Target','Age','Target_encoded', 'Target_binary', '2nd sem', 'grade', 'enrolled']
-    exclude_exact = ['Nacionality', "Mother's occupation", 'Unemployment rate', 'Curricular units 1st sem (evaluations)', 'Tasa_aprobacion_1sem']
+    exclude_patterns = ['_zscore', '_outlier', 'Target','Age','Target_encoded', 'Target_binary', '2nd sem', 'grade','enrolled', 'approved']
+    exclude_exact = ['Nacionality', "Mother's occupation", 'Unemployment rate', 'Curricular units 1st sem (evaluations)','Tasa_aprobacion_1sem']
 
     # Filtrar columnas que no contengan ninguno de los patrones excluidos ni sean exactamente 'Nationality'
     feature_columns = [col for col in df.columns
