@@ -14,8 +14,9 @@ Un enfoque estadístico para estudiar el abandono y el éxito académico en estu
 - Link: https://www.kaggle.com/datasets/thedevastator/higher-educationpredictors-of-student-retention?utm_source=chatgpt.com 🌐
 
 **Preguntas de investigación**
-1. ¿Existen diferencias significativas en el rendimiento entre quienes abandonan y quienes completan sus estudios? ⚖️
-2. ¿Qué variables socioeconómicas y académicas influyen más en la probabilidad de abandono y éxito? 🧾📊
+1. ¿Tienden los estudiantes que se graduaron a mostrar valores de 
+rendimiento mayores que los estudiantes que abandonaron la carrera? ⚖️
+2. ¿Cómo se estructuran los diversos niveles de desempeño académico y en qué  medida estos perfiles se encuentran vinculados a sus condiciones socioeconómicas y a la probabilidad de permanencia o abandono? 🧾📊
 3. ¿Se puede predecir el abandono o éxito usando técnicas estadísticas y de clasificación? 🤖🔮
 
 **Estructura del proyecto (sólo la estructura del proyecto) 🗂️🌈**
