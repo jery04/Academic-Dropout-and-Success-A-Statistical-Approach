@@ -1,0 +1,8 @@
+Variable: Mother's occupation
+media aritmética: 7.32
+mediana: 6.00
+moda: 10
+medidas de dispersión: minimo: 1.00, maximo: 32.00, rango: 31.00
+varianza: 15.98
+desviación estándar: 4.00
+rango intercuartílico: 5.00

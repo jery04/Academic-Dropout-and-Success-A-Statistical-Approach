@@ -1,0 +1,8 @@
+Variable: Previous qualification
+media aritmética: 2.53
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 1.00, maximo: 17.00, rango: 16.00
+varianza: 15.71
+desviación estándar: 3.96
+rango intercuartílico: 0.00

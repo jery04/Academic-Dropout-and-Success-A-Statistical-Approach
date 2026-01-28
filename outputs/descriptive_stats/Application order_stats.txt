@@ -1,0 +1,8 @@
+Variable: Application order
+media aritmética: 1.73
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 0.00, maximo: 9.00, rango: 9.00
+varianza: 1.73
+desviación estándar: 1.31
+rango intercuartílico: 1.00

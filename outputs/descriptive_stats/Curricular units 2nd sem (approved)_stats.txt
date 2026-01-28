@@ -1,0 +1,8 @@
+Variable: Curricular units 2nd sem (approved)
+media aritmética: 4.44
+mediana: 5.00
+moda: 6
+medidas de dispersión: minimo: 0.00, maximo: 20.00, rango: 20.00
+varianza: 9.09
+desviación estándar: 3.01
+rango intercuartílico: 4.00

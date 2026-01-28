@@ -1,0 +1,8 @@
+Variable: GDP
+media aritmética: 0.00
+mediana: 0.32
+moda: 0.32
+medidas de dispersión: minimo: -4.06, maximo: 3.51, rango: 7.57
+varianza: 5.15
+desviación estándar: 2.27
+rango intercuartílico: 3.49

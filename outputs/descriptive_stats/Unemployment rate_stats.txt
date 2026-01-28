@@ -1,0 +1,8 @@
+Variable: Unemployment rate
+media aritmética: 11.57
+mediana: 11.10
+moda: 7.6
+medidas de dispersión: minimo: 7.60, maximo: 16.20, rango: 8.60
+varianza: 7.10
+desviación estándar: 2.66
+rango intercuartílico: 4.50

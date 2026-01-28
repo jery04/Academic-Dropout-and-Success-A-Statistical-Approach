@@ -1,0 +1,8 @@
+Variable: Marital status
+media aritmética: 1.18
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 1.00, maximo: 6.00, rango: 5.00
+varianza: 0.37
+desviación estándar: 0.61
+rango intercuartílico: 0.00

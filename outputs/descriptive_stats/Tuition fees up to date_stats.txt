@@ -1,0 +1,8 @@
+Variable: Tuition fees up to date
+media aritmética: 0.88
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 0.00, maximo: 1.00, rango: 1.00
+varianza: 0.11
+desviación estándar: 0.32
+rango intercuartílico: 0.00

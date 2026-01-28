@@ -1,0 +1,8 @@
+Variable: Age at enrollment
+media aritmética: 23.27
+mediana: 20.00
+moda: 18
+medidas de dispersión: minimo: 17.00, maximo: 70.00, rango: 53.00
+varianza: 57.57
+desviación estándar: 7.59
+rango intercuartílico: 6.00

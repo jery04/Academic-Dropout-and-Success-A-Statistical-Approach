@@ -1,0 +1,8 @@
+Variable: Inflation rate
+media aritmética: 1.23
+mediana: 1.40
+moda: 1.4
+medidas de dispersión: minimo: -0.80, maximo: 3.70, rango: 4.50
+varianza: 1.91
+desviación estándar: 1.38
+rango intercuartílico: 2.30

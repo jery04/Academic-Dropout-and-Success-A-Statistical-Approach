@@ -1,0 +1,8 @@
+Variable: Father's occupation
+media aritmética: 7.82
+mediana: 8.00
+moda: 10
+medidas de dispersión: minimo: 1.00, maximo: 46.00, rango: 45.00
+varianza: 23.59
+desviación estándar: 4.86
+rango intercuartílico: 5.00

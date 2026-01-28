@@ -1,0 +1,4 @@
+Variable: Target
+media aritmética: N/A
+mediana: N/A
+moda: Graduate

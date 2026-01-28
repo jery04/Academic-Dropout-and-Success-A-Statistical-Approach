@@ -1,0 +1,8 @@
+Variable: Nacionality
+media aritmética: 1.25
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 1.00, maximo: 21.00, rango: 20.00
+varianza: 3.06
+desviación estándar: 1.75
+rango intercuartílico: 0.00

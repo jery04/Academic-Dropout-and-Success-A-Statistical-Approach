@@ -1,0 +1,8 @@
+Variable: Educational special needs
+media aritmética: 0.01
+mediana: 0.00
+moda: 0
+medidas de dispersión: minimo: 0.00, maximo: 1.00, rango: 1.00
+varianza: 0.01
+desviación estándar: 0.11
+rango intercuartílico: 0.00

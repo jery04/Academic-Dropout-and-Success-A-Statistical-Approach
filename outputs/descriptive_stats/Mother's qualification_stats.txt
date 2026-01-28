@@ -1,0 +1,8 @@
+Variable: Mother's qualification
+media aritmética: 12.32
+mediana: 13.00
+moda: 1
+medidas de dispersión: minimo: 1.00, maximo: 29.00, rango: 28.00
+varianza: 81.47
+desviación estándar: 9.03
+rango intercuartílico: 20.00

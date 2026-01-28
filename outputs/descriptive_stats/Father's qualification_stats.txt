@@ -1,0 +1,8 @@
+Variable: Father's qualification
+media aritmética: 16.46
+mediana: 14.00
+moda: 27
+medidas de dispersión: minimo: 1.00, maximo: 34.00, rango: 33.00
+varianza: 121.99
+desviación estándar: 11.04
+rango intercuartílico: 24.00

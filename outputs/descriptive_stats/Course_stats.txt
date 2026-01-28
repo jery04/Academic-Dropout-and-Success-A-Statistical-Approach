@@ -1,0 +1,8 @@
+Variable: Course
+media aritmética: 9.90
+mediana: 10.00
+moda: 12
+medidas de dispersión: minimo: 1.00, maximo: 17.00, rango: 16.00
+varianza: 18.76
+desviación estándar: 4.33
+rango intercuartílico: 7.00

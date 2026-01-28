@@ -1,0 +1,213 @@
+{
+  "timestamp": "2026-01-27T20:46:22.331800",
+  "model": "Logistic Regression",
+  "parameters": {
+    "penalty": "l2",
+    "C": 1.0,
+    "solver": "lbfgs",
+    "class_weight": "balanced",
+    "test_size": 0.2,
+    "random_state": 42
+  },
+  "cross_validation": {
+    "accuracy": {
+      "mean": 0.7527544661404237,
+      "std": 0.01291331953184826,
+      "values": [
+        0.7521514629948365,
+        0.76592082616179,
+        0.7641996557659209,
+        0.729776247848537,
+        0.7517241379310344
+      ]
+    },
+    "precision": {
+      "mean": 0.800690915709058,
+      "std": 0.008469572820884053,
+      "values": [
+        0.8034682080924855,
+        0.815028901734104,
+        0.7967032967032966,
+        0.7987804878048781,
+        0.7894736842105263
+      ]
+    },
+    "recall": {
+      "mean": 0.790605143963765,
+      "std": 0.026994277737399687,
+      "values": [
+        0.7853107344632768,
+        0.7966101694915254,
+        0.8215297450424929,
+        0.7422096317280453,
+        0.8073654390934845
+      ]
+    },
+    "f1": {
+      "mean": 0.7953404179949309,
+      "std": 0.013943754828690562,
+      "values": [
+        0.7942857142857143,
+        0.8057142857142857,
+        0.8089260808926081,
+        0.7694566813509545,
+        0.7983193277310925
+      ]
+    },
+    "roc_auc": {
+      "mean": 0.8152920878858371,
+      "std": 0.011222338225527439,
+      "values": [
+        0.8162970706090247,
+        0.8313546877722193,
+        0.8220018885741265,
+        0.7987674568858407,
+        0.8080393355879746
+      ]
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.7451790633608816,
+    "precision": 0.8023529411764706,
+    "recall": 0.7714932126696833,
+    "f1_score": 0.7866205305651672,
+    "roc_auc": 0.824692498884711,
+    "average_precision": 0.8592145129934217,
+    "confusion_matrix": [
+      [
+        200,
+        84
+      ],
+      [
+        101,
+        341
+      ]
+    ],
+    "true_negatives": 200,
+    "false_positives": 84,
+    "false_negatives": 101,
+    "true_positives": 341
+  },
+  "feature_importance": [
+    {
+      "Feature": "Tuition fees up to date",
+      "Coefficient": 1.0224671406686574,
+      "Abs_Coefficient": 1.0224671406686574,
+      "Odds_Ratio": 2.7800450724111685
+    },
+    {
+      "Feature": "Scholarship holder",
+      "Coefficient": 0.6049849328767346,
+      "Abs_Coefficient": 0.6049849328767346,
+      "Odds_Ratio": 1.8312246173908746
+    },
+    {
+      "Feature": "Gender",
+      "Coefficient": -0.40441150191596265,
+      "Abs_Coefficient": 0.40441150191596265,
+      "Odds_Ratio": 0.6673694409534596
+    },
+    {
+      "Feature": "Application mode",
+      "Coefficient": -0.4001461156267451,
+      "Abs_Coefficient": 0.4001461156267451,
+      "Odds_Ratio": 0.670222108957236
+    },
+    {
+      "Feature": "Debtor",
+      "Coefficient": -0.3707807727173333,
+      "Abs_Coefficient": 0.3707807727173333,
+      "Odds_Ratio": 0.6901952346001928
+    },
+    {
+      "Feature": "Curricular units 1st sem (credited)",
+      "Coefficient": 0.25409140814980724,
+      "Abs_Coefficient": 0.25409140814980724,
+      "Odds_Ratio": 1.2892896504631854
+    },
+    {
+      "Feature": "Father's occupation",
+      "Coefficient": 0.20278401784819303,
+      "Abs_Coefficient": 0.20278401784819303,
+      "Odds_Ratio": 1.2248079030313983
+    },
+    {
+      "Feature": "Curricular units 1st sem (without evaluations)",
+      "Coefficient": -0.17533220161478172,
+      "Abs_Coefficient": 0.17533220161478172,
+      "Odds_Ratio": 0.8391781981066015
+    },
+    {
+      "Feature": "International",
+      "Coefficient": 0.16923714967810471,
+      "Abs_Coefficient": 0.16923714967810471,
+      "Odds_Ratio": 1.1844009859338254
+    },
+    {
+      "Feature": "Mother's qualification",
+      "Coefficient": -0.12448314259333569,
+      "Abs_Coefficient": 0.12448314259333569,
+      "Odds_Ratio": 0.8829531455411734
+    },
+    {
+      "Feature": "Course",
+      "Coefficient": -0.12030575522271637,
+      "Abs_Coefficient": 0.12030575522271637,
+      "Odds_Ratio": 0.886649297614708
+    },
+    {
+      "Feature": "Inflation rate",
+      "Coefficient": -0.1000796968626665,
+      "Abs_Coefficient": 0.1000796968626665,
+      "Odds_Ratio": 0.9047653082060206
+    },
+    {
+      "Feature": "Previous qualification",
+      "Coefficient": 0.09753118307685854,
+      "Abs_Coefficient": 0.09753118307685854,
+      "Odds_Ratio": 1.1024458186800274
+    },
+    {
+      "Feature": "Educational special needs",
+      "Coefficient": -0.06711490197215196,
+      "Abs_Coefficient": 0.06711490197215196,
+      "Odds_Ratio": 0.9350877517369995
+    },
+    {
+      "Feature": "Application order",
+      "Coefficient": 0.06333760056787599,
+      "Abs_Coefficient": 0.06333760056787599,
+      "Odds_Ratio": 1.0653864535966244
+    },
+    {
+      "Feature": "Marital status",
+      "Coefficient": -0.053134449832639596,
+      "Abs_Coefficient": 0.053134449832639596,
+      "Odds_Ratio": 0.9482525115197749
+    },
+    {
+      "Feature": "GDP",
+      "Coefficient": 0.018977482710680258,
+      "Abs_Coefficient": 0.018977482710680258,
+      "Odds_Ratio": 1.0191586996677318
+    },
+    {
+      "Feature": "Displaced",
+      "Coefficient": 0.01632314708262653,
+      "Abs_Coefficient": 0.01632314708262653,
+      "Odds_Ratio": 1.016457097486202
+    },
+    {
+      "Feature": "Daytime/evening attendance",
+      "Coefficient": -0.00902013737691244,
+      "Abs_Coefficient": 0.00902013737691244,
+      "Odds_Ratio": 0.9910204220201798
+    },
+    {
+      "Feature": "Father's qualification",
+      "Coefficient": 0.003760498053769302,
+      "Abs_Coefficient": 0.003760498053769302,
+      "Odds_Ratio": 1.003767577597998
+    }
+  ]
+}

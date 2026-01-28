@@ -1,0 +1,36 @@
+variable,media,mediana,moda,minimo,maximo,rango,varianza,desviacion_estandar,rango_intercuartilico
+Marital status,1.18,1.0,1,1.0,6.0,5.0,0.37,0.61,0.0
+Application mode,6.89,8.0,1,1.0,18.0,17.0,28.08,5.3,11.0
+Application order,1.73,1.0,1,0.0,9.0,9.0,1.73,1.31,1.0
+Course,9.9,10.0,12,1.0,17.0,16.0,18.76,4.33,7.0
+Daytime/evening attendance,0.89,1.0,1,0.0,1.0,1.0,0.1,0.31,0.0
+Previous qualification,2.53,1.0,1,1.0,17.0,16.0,15.71,3.96,0.0
+Nacionality,1.25,1.0,1,1.0,21.0,20.0,3.06,1.75,0.0
+Mother's qualification,12.32,13.0,1,1.0,29.0,28.0,81.47,9.03,20.0
+Father's qualification,16.46,14.0,27,1.0,34.0,33.0,121.99,11.04,24.0
+Mother's occupation,7.32,6.0,10,1.0,32.0,31.0,15.98,4.0,5.0
+Father's occupation,7.82,8.0,10,1.0,46.0,45.0,23.59,4.86,5.0
+Displaced,0.55,1.0,1,0.0,1.0,1.0,0.25,0.5,1.0
+Educational special needs,0.01,0.0,0,0.0,1.0,1.0,0.01,0.11,0.0
+Debtor,0.11,0.0,0,0.0,1.0,1.0,0.1,0.32,0.0
+Tuition fees up to date,0.88,1.0,1,0.0,1.0,1.0,0.11,0.32,0.0
+Gender,0.35,0.0,0,0.0,1.0,1.0,0.23,0.48,1.0
+Scholarship holder,0.25,0.0,0,0.0,1.0,1.0,0.19,0.43,0.0
+Age at enrollment,23.27,20.0,18,17.0,70.0,53.0,57.57,7.59,6.0
+International,0.02,0.0,0,0.0,1.0,1.0,0.02,0.16,0.0
+Curricular units 1st sem (credited),0.71,0.0,0,0.0,20.0,20.0,5.57,2.36,0.0
+Curricular units 1st sem (enrolled),6.27,6.0,6,0.0,26.0,26.0,6.15,2.48,2.0
+Curricular units 1st sem (evaluations),8.3,8.0,8,0.0,45.0,45.0,17.46,4.18,4.0
+Curricular units 1st sem (approved),4.71,5.0,6,0.0,26.0,26.0,9.57,3.09,3.0
+Curricular units 1st sem (grade),10.64,12.29,0.0,0.0,18.88,18.88,23.46,4.84,2.4
+Curricular units 1st sem (without evaluations),0.14,0.0,0,0.0,12.0,12.0,0.48,0.69,0.0
+Curricular units 2nd sem (credited),0.54,0.0,0,0.0,19.0,19.0,3.68,1.92,0.0
+Curricular units 2nd sem (enrolled),6.23,6.0,6,0.0,23.0,23.0,4.82,2.2,2.0
+Curricular units 2nd sem (evaluations),8.06,8.0,8,0.0,33.0,33.0,15.59,3.95,4.0
+Curricular units 2nd sem (approved),4.44,5.0,6,0.0,20.0,20.0,9.09,3.01,4.0
+Curricular units 2nd sem (grade),10.23,12.2,0.0,0.0,18.57,18.57,27.15,5.21,2.58
+Curricular units 2nd sem (without evaluations),0.15,0.0,0,0.0,12.0,12.0,0.57,0.75,0.0
+Unemployment rate,11.57,11.1,7.6,7.6,16.2,8.6,7.1,2.66,4.5
+Inflation rate,1.23,1.4,1.4,-0.8,3.7,4.5,1.91,1.38,2.3
+GDP,0.0,0.32,0.32,-4.06,3.51,7.57,5.15,2.27,3.49
+Target,,,Graduate,,,,,,

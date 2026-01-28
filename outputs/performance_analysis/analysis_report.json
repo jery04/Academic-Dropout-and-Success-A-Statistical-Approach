@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "fecha_analisis": "2026-01-27 20:45:54",
+    "dataset": "outputs/prepared_data/dataset_prepared.csv",
+    "variable_analizada": "Tasa de Aprobación (1er Semestre) - zscore",
+    "n_total": 4424
+  },
+  "grupos": {
+    "dropout": {
+      "n": 1421,
+      "porcentaje": 32.12,
+      "estadisticas": {
+        "media": 0.384,
+        "mediana": 0.3333,
+        "desv_std": 0.3731,
+        "min": 0.0,
+        "max": 1.0,
+        "q1": 0.0,
+        "q3": 0.7143
+      }
+    },
+    "graduate": {
+      "n": 2209,
+      "porcentaje": 49.93,
+      "estadisticas": {
+        "media": 0.9032,
+        "mediana": 1.0,
+        "desv_std": 0.1998,
+        "min": 0.0,
+        "max": 1.0,
+        "q1": 0.8571,
+        "q3": 1.0
+      }
+    }
+  },
+  "pruebas_normalidad": {
+    "shapiro_dropout": {
+      "statistic": 0.8370302925572886,
+      "p_value": 8.14136562874228e-36,
+      "is_normal": false
+    },
+    "shapiro_graduate": {
+      "statistic": 0.6715802748969579,
+      "p_value": 1.7704009682238342e-53,
+      "is_normal": false
+    },
+    "both_normal": false
+  },
+  "prueba_comparativa": {
+    "test": {
+      "name": "Mann-Whitney U",
+      "statistic": 373399.0,
+      "p_value": 0.0,
+      "significant": true,
+      "alpha": 0.05,
+      "mean_dropout": 0.3839940095481968,
+      "mean_graduate": 0.9032234547836121,
+      "difference": 0.5192294452354154
+    }
+  }
+}

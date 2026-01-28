@@ -1,0 +1,8 @@
+Variable: Displaced
+media aritmética: 0.55
+mediana: 1.00
+moda: 1
+medidas de dispersión: minimo: 0.00, maximo: 1.00, rango: 1.00
+varianza: 0.25
+desviación estándar: 0.50
+rango intercuartílico: 1.00

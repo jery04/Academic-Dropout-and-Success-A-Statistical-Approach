@@ -1,0 +1,8 @@
+Variable: Curricular units 1st sem (evaluations)
+media aritmética: 8.30
+mediana: 8.00
+moda: 8
+medidas de dispersión: minimo: 0.00, maximo: 45.00, rango: 45.00
+varianza: 17.46
+desviación estándar: 4.18
+rango intercuartílico: 4.00

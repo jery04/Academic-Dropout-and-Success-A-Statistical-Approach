@@ -1,0 +1,279 @@
+{
+  "missing_values": {
+    "strategy": "auto",
+    "columns_dropped": [],
+    "imputations": {}
+  },
+  "variable_types": {
+    "categorical_coded": [
+      "Marital status",
+      "Application mode",
+      "Course",
+      "Previous qualification",
+      "Nacionality",
+      "Mother's qualification",
+      "Father's qualification",
+      "Mother's occupation",
+      "Father's occupation"
+    ],
+    "categorical_string": [],
+    "numeric_continuous": [
+      "Application order",
+      "Age at enrollment",
+      "Curricular units 1st sem (credited)",
+      "Curricular units 1st sem (enrolled)",
+      "Curricular units 1st sem (evaluations)",
+      "Curricular units 1st sem (approved)",
+      "Curricular units 1st sem (grade)",
+      "Curricular units 1st sem (without evaluations)",
+      "Curricular units 2nd sem (credited)",
+      "Curricular units 2nd sem (enrolled)",
+      "Curricular units 2nd sem (evaluations)",
+      "Curricular units 2nd sem (approved)",
+      "Curricular units 2nd sem (grade)",
+      "Curricular units 2nd sem (without evaluations)",
+      "Unemployment rate",
+      "Inflation rate",
+      "GDP",
+      "Tasa_aprobacion_1sem"
+    ],
+    "binary": [
+      "Daytime/evening attendance",
+      "Displaced",
+      "Educational special needs",
+      "Debtor",
+      "Tuition fees up to date",
+      "Gender",
+      "Scholarship holder",
+      "International"
+    ],
+    "target": [
+      "Target"
+    ]
+  },
+  "target_encoding": {
+    "Dropout": 0,
+    "Enrolled": 1,
+    "Graduate": 2
+  },
+  "outliers": {
+    "Application order": {
+      "n_outliers": 1,
+      "skewness": 1.8810499569187527,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Age at enrollment": {
+      "n_outliers": 5,
+      "skewness": 2.0549883694238757,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 1st sem (credited)": {
+      "n_outliers": 19,
+      "skewness": 4.169048768133995,
+      "skew_type": "flat_or_repeated",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 1st sem (enrolled)": {
+      "n_outliers": 199,
+      "skewness": 1.6190409058476551,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 1st sem (evaluations)": {
+      "n_outliers": 33,
+      "skewness": 0.9766367042003191,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 3.0
+    },
+    "Curricular units 1st sem (approved)": {
+      "n_outliers": 40,
+      "skewness": 0.7662623977563179,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 3.0
+    },
+    "Curricular units 1st sem (grade)": {
+      "n_outliers": 62,
+      "skewness": -1.568145594413272,
+      "skew_type": "left",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 1st sem (without evaluations)": {
+      "n_outliers": 19,
+      "skewness": 8.207403102428648,
+      "skew_type": "flat_or_repeated",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 2nd sem (credited)": {
+      "n_outliers": 20,
+      "skewness": 4.634819505432633,
+      "skew_type": "flat_or_repeated",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 2nd sem (enrolled)": {
+      "n_outliers": 228,
+      "skewness": 0.7881135037395065,
+      "skew_type": "right",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 3.0
+    },
+    "Curricular units 2nd sem (evaluations)": {
+      "n_outliers": 15,
+      "skewness": 0.33649717718772926,
+      "skew_type": "symmetric",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 3.0
+    },
+    "Curricular units 2nd sem (approved)": {
+      "n_outliers": 5,
+      "skewness": 0.3062793835136138,
+      "skew_type": "symmetric",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 3.0
+    },
+    "Curricular units 2nd sem (grade)": {
+      "n_outliers": 877,
+      "skewness": -1.3136501682968427,
+      "skew_type": "left",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 1.5
+    },
+    "Curricular units 2nd sem (without evaluations)": {
+      "n_outliers": 21,
+      "skewness": 7.267700851141788,
+      "skew_type": "flat_or_repeated",
+      "lower_multiplier": 1.5,
+      "upper_multiplier": 1.5
+    },
+    "Unemployment rate": {
+      "n_outliers": 0,
+      "skewness": 0.21205105322727916,
+      "skew_type": "symmetric",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 3.0
+    },
+    "Inflation rate": {
+      "n_outliers": 0,
+      "skewness": 0.25237535194482436,
+      "skew_type": "symmetric",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 3.0
+    },
+    "GDP": {
+      "n_outliers": 0,
+      "skewness": -0.39406820694532085,
+      "skew_type": "symmetric",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 3.0
+    },
+    "Tasa_aprobacion_1sem": {
+      "n_outliers": 0,
+      "skewness": -1.0105153903414212,
+      "skew_type": "left",
+      "lower_multiplier": 3.0,
+      "upper_multiplier": 1.5
+    }
+  },
+  "scaling_params": {
+    "Application order": {
+      "method": "zscore",
+      "mean": 1.7278481012658229,
+      "std": 1.3137930783621674
+    },
+    "Age at enrollment": {
+      "method": "zscore",
+      "mean": 23.265144665461122,
+      "std": 7.587815615029819
+    },
+    "Curricular units 1st sem (credited)": {
+      "method": "zscore",
+      "mean": 0.7099909584086799,
+      "std": 2.3605066191181483
+    },
+    "Curricular units 1st sem (enrolled)": {
+      "method": "zscore",
+      "mean": 6.2705696202531644,
+      "std": 2.480178175307104
+    },
+    "Curricular units 1st sem (evaluations)": {
+      "method": "zscore",
+      "mean": 8.299050632911392,
+      "std": 4.1791055691439825
+    },
+    "Curricular units 1st sem (approved)": {
+      "method": "zscore",
+      "mean": 4.706600361663653,
+      "std": 3.094237979694002
+    },
+    "Curricular units 1st sem (grade)": {
+      "method": "zscore",
+      "mean": 10.640821575154185,
+      "std": 4.843663380663773
+    },
+    "Curricular units 1st sem (without evaluations)": {
+      "method": "zscore",
+      "mean": 0.13765822784810128,
+      "std": 0.6908801837297883
+    },
+    "Curricular units 2nd sem (credited)": {
+      "method": "zscore",
+      "mean": 0.5418173598553345,
+      "std": 1.9185461437102433
+    },
+    "Curricular units 2nd sem (enrolled)": {
+      "method": "zscore",
+      "mean": 6.232142857142857,
+      "std": 2.195950751463278
+    },
+    "Curricular units 2nd sem (evaluations)": {
+      "method": "zscore",
+      "mean": 8.063291139240507,
+      "std": 3.947950941437388
+    },
+    "Curricular units 2nd sem (approved)": {
+      "method": "zscore",
+      "mean": 4.435804701627487,
+      "std": 3.014763902385565
+    },
+    "Curricular units 2nd sem (grade)": {
+      "method": "zscore",
+      "mean": 10.230205722716985,
+      "std": 5.210807954644242
+    },
+    "Curricular units 2nd sem (without evaluations)": {
+      "method": "zscore",
+      "mean": 0.15031645569620253,
+      "std": 0.753774068513021
+    },
+    "Unemployment rate": {
+      "method": "zscore",
+      "mean": 11.56613924050633,
+      "std": 2.6638504843026367
+    },
+    "Inflation rate": {
+      "method": "zscore",
+      "mean": 1.228028933092224,
+      "std": 1.3827106915401046
+    },
+    "GDP": {
+      "method": "zscore",
+      "mean": 0.001968806509945778,
+      "std": 2.2699354412537627
+    },
+    "Tasa_aprobacion_1sem": {
+      "method": "zscore",
+      "mean": 0.6978849610659205,
+      "std": 0.3652467923241392
+    }
+  }
+}

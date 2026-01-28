@@ -210,28 +210,10 @@ __marimo__/
 # Project-Specific Files
 # ========================================
 
-# Output directories - generated files
-outputs/descriptive_stats/*.txt
-outputs/descriptive_stats/*.csv
-outputs/data_visualization/**/*.png
-outputs/data_visualization/**/*.jpg
-outputs/data_visualization/**/*.pdf
-outputs/pattern_analysis/*.json
-outputs/pattern_analysis/*.txt
-outputs/pattern_analysis/figures/*
-outputs/performance_analysis/*.json
-outputs/performance_analysis/figures/*
-outputs/prediction_results/*.json
-outputs/prediction_results/*.csv
-outputs/prediction_results/*.png
-outputs/prediction_results/*.jpg
-outputs/prediction_results/*.pdf
-outputs/prediction_results/figures/*
-outputs/prepared_data/*.csv
-outputs/prepared_data/*.json
 
-# Keep directory structure with .gitkeep files
-!outputs/**/.gitkeep
+# Permitir todo el contenido dentro de outputs
+!outputs/
+!outputs/**
 
 # Large dataset files (uncomment if needed)
 # dataset/*.csv
