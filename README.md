@@ -1,4 +1,4 @@
-🎓📊 Statistics Project 2025–2026 — Academic Dropout and Success 📚✨🧪💻📈
+🎓 Statistics Project 2025–2026 — Academic Dropout and Success 🧪💻📈
 ---
 
 **Team members:**
